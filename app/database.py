@@ -1,0 +1,23 @@
+from typing import Optional
+
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+
+from app.config import settings
+
+client: Optional[AsyncIOMotorClient] = None
+
+
+def get_database() -> AsyncIOMotorDatabase:
+    return client[settings.DATABASE_NAME]
+
+
+async def connect_db() -> None:
+    global client
+    client = AsyncIOMotorClient(settings.MONGODB_URL)
+
+
+async def disconnect_db() -> None:
+    global client
+    if client:
+        client.close()
+        client = None
