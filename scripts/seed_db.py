@@ -10,7 +10,7 @@ SEED_FILE = Path(__file__).resolve().parent.parent / "data" / "seed_loads.json"
 
 
 async def seed():
-    client = AsyncIOMotorClient(settings.MONGODB_URL)
+    client = AsyncIOMotorClient(settings.MONGODB_URI)
     db = client[settings.DATABASE_NAME]
 
     with open(SEED_FILE) as f:

@@ -13,7 +13,7 @@ def get_database() -> AsyncIOMotorDatabase:
 
 async def connect_db() -> None:
     global client
-    client = AsyncIOMotorClient(settings.MONGODB_URL)
+    client = AsyncIOMotorClient(settings.MONGODB_URI)
 
 
 async def disconnect_db() -> None:
