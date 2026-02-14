@@ -1,12 +1,23 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # ---------------------------------------------------------------------------
 # Ingestion models (nested, mirrors webhook JSON)
 # ---------------------------------------------------------------------------
+
+
+class _WebhookModel(BaseModel):
+    """Base for webhook sub-models: coerces empty strings to None."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _empty_strings_to_none(cls, data):
+        if isinstance(data, dict):
+            return {k: (None if v == "" else v) for k, v in data.items()}
+        return data
 
 class SystemData(BaseModel):
     call_id: str
@@ -26,45 +37,45 @@ class LoadData(BaseModel):
     alternate_loads_presented: int
 
 
-class Outcome(BaseModel):
+class Outcome(_WebhookModel):
     call_outcome: str
     rejection_reason: Optional[str] = None
 
 
-class Sentiment(BaseModel):
+class Sentiment(_WebhookModel):
     call_sentiment: Optional[str] = None
     sentiment_progression: Optional[str] = None
     engagement_level: Optional[str] = None
     carrier_expressed_interest_future: Optional[bool] = None
 
 
-class Performance(BaseModel):
+class Performance(_WebhookModel):
     agent_followed_protocol: Optional[bool] = None
     protocol_violations: list[str] = Field(default_factory=list)
     agent_tone_quality: Optional[str] = None
 
 
-class Conversation(BaseModel):
+class Conversation(_WebhookModel):
     ai_interruptions_count: Optional[int] = None
     transcription_errors_detected: Optional[bool] = None
     carrier_had_to_repeat_info: Optional[bool] = None
 
 
-class Operational(BaseModel):
+class Operational(_WebhookModel):
     transfer_to_sales_attempted: Optional[bool] = None
     transfer_to_sales_completed: Optional[bool] = None
     transfer_reason: Optional[str] = None
     loads_presented_count: Optional[int] = None
 
 
-class OptionalData(BaseModel):
+class OptionalData(_WebhookModel):
     negotiation_strategy_used: Optional[str] = None
     carrier_negotiation_leverage: list[str] = Field(default_factory=list)
     carrier_objections: list[str] = Field(default_factory=list)
     carrier_questions_asked: list[str] = Field(default_factory=list)
 
 
-class Negotiation(BaseModel):
+class Negotiation(_WebhookModel):
     carrier_first_offer: Optional[float] = None
     broker_first_counter: Optional[float] = None
     carrier_second_offer: Optional[float] = None
