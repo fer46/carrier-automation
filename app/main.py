@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.database import connect_db, disconnect_db
+from app.analytics.router import router as analytics_router
 from app.loads.router import router as loads_router
 from app.negotiations.router import router as negotiations_router
 
@@ -22,6 +23,7 @@ app = FastAPI(
 
 app.include_router(loads_router)
 app.include_router(negotiations_router)
+app.include_router(analytics_router)
 
 
 @app.get("/health")
