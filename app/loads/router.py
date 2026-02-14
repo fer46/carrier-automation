@@ -1,10 +1,22 @@
-from typing import Optional
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BeforeValidator
 
 from app.dependencies import verify_api_key
 from app.loads.models import Load, LoadResponse
 from app.loads.service import get_load_by_id, search_loads
+
+
+def _empty_to_none(v):
+    """Coerce empty strings to None so Pydantic doesn't choke on \"\" for floats."""
+    if v == "":
+        return None
+    return v
+
+
+NullableFloat = Annotated[Optional[float], BeforeValidator(_empty_to_none)]
+NullableStr = Annotated[Optional[str], BeforeValidator(_empty_to_none)]
 
 # All routes under /api/loads require a valid API key in the X-API-Key header.
 # The verify_api_key dependency runs before every endpoint in this router.
@@ -16,13 +28,13 @@ async def search(
     # All search params are optional — omitting all returns every load in the DB.
     # These come from the voice AI after extracting carrier preferences from the call.
     validation_check: str = Query(...),  # Must be "VALID" — guardrail to ensure carrier is validated
-    origin: Optional[str] = Query(None),  # e.g. "Denver" — where the carrier is now
-    destination: Optional[str] = Query(None),  # e.g. "Chicago" — where they want to go
-    equipment_type: Optional[str] = Query(None),  # e.g. "Dry Van" — what truck they have
-    min_rate: Optional[float] = Query(None),  # Minimum acceptable rate in USD
-    max_rate: Optional[float] = Query(None),  # Maximum acceptable rate in USD
-    max_weight: Optional[float] = Query(None),  # Carrier's truck weight limit in lbs
-    pickup_date: Optional[str] = Query(None),  # Earliest pickup date, e.g. "2026-02-15"
+    origin: NullableStr = Query(None),  # e.g. "Denver" — where the carrier is now
+    destination: NullableStr = Query(None),  # e.g. "Chicago" — where they want to go
+    equipment_type: NullableStr = Query(None),  # e.g. "Dry Van" — what truck they have
+    min_rate: NullableFloat = Query(None),  # Minimum acceptable rate in USD
+    max_rate: NullableFloat = Query(None),  # Maximum acceptable rate in USD
+    max_weight: NullableFloat = Query(None),  # Carrier's truck weight limit in lbs
+    pickup_date: NullableStr = Query(None),  # Earliest pickup date, e.g. "2026-02-15"
 ):
     """Search for available loads matching carrier preferences.
 
