@@ -27,14 +27,16 @@ SAMPLE_CALL_RECORD = {
         "alternate_loads_presented": 1
     },
     "transcript_extraction": {
-        "carrier_first_offer": 1900.00,
-        "broker_first_counter": 2100.00,
-        "carrier_second_offer": 2000.00,
-        "broker_second_counter": None,
-        "carrier_third_offer": None,
-        "broker_third_counter": None,
-        "final_agreed_rate": 2000.00,
-        "negotiation_rounds": 2,
+        "negotiation": {
+            "carrier_first_offer": 1900.00,
+            "broker_first_counter": 2100.00,
+            "carrier_second_offer": 2000.00,
+            "broker_second_counter": None,
+            "carrier_third_offer": None,
+            "broker_third_counter": None,
+            "final_agreed_rate": 2000.00,
+            "negotiation_rounds": 2,
+        },
         "outcome": {
             "call_outcome": "accepted",
             "rejection_reason": None

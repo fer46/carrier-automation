@@ -64,7 +64,7 @@ class OptionalData(BaseModel):
     carrier_questions_asked: list[str] = Field(default_factory=list)
 
 
-class TranscriptExtraction(BaseModel):
+class Negotiation(BaseModel):
     carrier_first_offer: Optional[float] = None
     broker_first_counter: Optional[float] = None
     carrier_second_offer: Optional[float] = None
@@ -73,6 +73,10 @@ class TranscriptExtraction(BaseModel):
     broker_third_counter: Optional[float] = None
     final_agreed_rate: Optional[float] = None
     negotiation_rounds: Optional[int] = None
+
+
+class TranscriptExtraction(BaseModel):
+    negotiation: Negotiation = Field(default_factory=Negotiation)
     outcome: Outcome
     sentiment: Sentiment = Field(default_factory=Sentiment)
     performance: Performance = Field(default_factory=Performance)

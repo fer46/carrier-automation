@@ -85,7 +85,7 @@ async def get_summary(
                 },
                 "avg_duration": {"$avg": "$system.call_duration"},
                 "avg_rounds": {
-                    "$avg": "$transcript_extraction.negotiation_rounds"
+                    "$avg": "$transcript_extraction.negotiation.negotiation_rounds"
                 },
                 "avg_margin": {
                     "$avg": {
@@ -94,13 +94,13 @@ async def get_summary(
                                 "$and": [
                                     {
                                         "$ne": [
-                                            "$transcript_extraction.carrier_first_offer",
+                                            "$transcript_extraction.negotiation.carrier_first_offer",
                                             None,
                                         ]
                                     },
                                     {
                                         "$ne": [
-                                            "$transcript_extraction.final_agreed_rate",
+                                            "$transcript_extraction.negotiation.final_agreed_rate",
                                             None,
                                         ]
                                     },
@@ -112,11 +112,11 @@ async def get_summary(
                                         "$divide": [
                                             {
                                                 "$subtract": [
-                                                    "$transcript_extraction.carrier_first_offer",
-                                                    "$transcript_extraction.final_agreed_rate",
+                                                    "$transcript_extraction.negotiation.carrier_first_offer",
+                                                    "$transcript_extraction.negotiation.final_agreed_rate",
                                                 ]
                                             },
-                                            "$transcript_extraction.carrier_first_offer",
+                                            "$transcript_extraction.negotiation.carrier_first_offer",
                                         ]
                                     },
                                     100,
@@ -310,7 +310,7 @@ async def get_negotiations(
 
     # --- Pipeline 1: rate averages ---
     p1: list[dict] = []
-    rate_match: dict = {"transcript_extraction.carrier_first_offer": {"$ne": None}}
+    rate_match: dict = {"transcript_extraction.negotiation.carrier_first_offer": {"$ne": None}}
     if date_match:
         rate_match.update(date_match)
     p1.append({"$match": rate_match})
@@ -319,13 +319,13 @@ async def get_negotiations(
             "$group": {
                 "_id": None,
                 "avg_first_offer": {
-                    "$avg": "$transcript_extraction.carrier_first_offer"
+                    "$avg": "$transcript_extraction.negotiation.carrier_first_offer"
                 },
                 "avg_final_rate": {
-                    "$avg": "$transcript_extraction.final_agreed_rate"
+                    "$avg": "$transcript_extraction.negotiation.final_agreed_rate"
                 },
                 "avg_rounds": {
-                    "$avg": "$transcript_extraction.negotiation_rounds"
+                    "$avg": "$transcript_extraction.negotiation.negotiation_rounds"
                 },
             }
         }
@@ -346,14 +346,14 @@ async def get_negotiations(
         p2.append({"$match": date_match})
     group_stage: dict = {"_id": None}
     for field in rate_fields:
-        group_stage[field] = {"$avg": f"$transcript_extraction.{field}"}
+        group_stage[field] = {"$avg": f"$transcript_extraction.negotiation.{field}"}
     p2.append({"$group": group_stage})
 
     # --- Pipeline 3: margin distribution ---
     p3: list[dict] = []
     margin_match: dict = {
-        "transcript_extraction.carrier_first_offer": {"$ne": None},
-        "transcript_extraction.final_agreed_rate": {"$ne": None},
+        "transcript_extraction.negotiation.carrier_first_offer": {"$ne": None},
+        "transcript_extraction.negotiation.final_agreed_rate": {"$ne": None},
     }
     if date_match:
         margin_match.update(date_match)
@@ -367,11 +367,11 @@ async def get_negotiations(
                             "$divide": [
                                 {
                                     "$subtract": [
-                                        "$transcript_extraction.carrier_first_offer",
-                                        "$transcript_extraction.final_agreed_rate",
+                                        "$transcript_extraction.negotiation.carrier_first_offer",
+                                        "$transcript_extraction.negotiation.final_agreed_rate",
                                     ]
                                 },
-                                "$transcript_extraction.carrier_first_offer",
+                                "$transcript_extraction.negotiation.carrier_first_offer",
                             ]
                         },
                         100,
@@ -419,7 +419,7 @@ async def get_negotiations(
                     }
                 },
                 "avg_rounds": {
-                    "$avg": "$transcript_extraction.negotiation_rounds"
+                    "$avg": "$transcript_extraction.negotiation.negotiation_rounds"
                 },
             }
         }
