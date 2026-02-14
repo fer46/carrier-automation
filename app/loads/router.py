@@ -15,13 +15,15 @@ router = APIRouter(prefix="/api/loads", tags=["loads"], dependencies=[Depends(ve
 async def search(
     # All search params are optional — omitting all returns every load in the DB.
     # These come from the voice AI after extracting carrier preferences from the call.
+    # Numeric params are typed as str because the voice AI may send "" for empty values,
+    # which FastAPI can't parse as float. We coerce "" → None below.
     validation_check: str = Query(...),  # Must be "VALID" — guardrail to ensure carrier is validated
     origin: Optional[str] = Query(None),  # e.g. "Denver" — where the carrier is now
     destination: Optional[str] = Query(None),  # e.g. "Chicago" — where they want to go
     equipment_type: Optional[str] = Query(None),  # e.g. "Dry Van" — what truck they have
-    min_rate: Optional[float] = Query(None),  # Minimum acceptable rate in USD
-    max_rate: Optional[float] = Query(None),  # Maximum acceptable rate in USD
-    max_weight: Optional[float] = Query(None),  # Carrier's truck weight limit in lbs
+    min_rate: Optional[str] = Query(None),  # Minimum acceptable rate in USD
+    max_rate: Optional[str] = Query(None),  # Maximum acceptable rate in USD
+    max_weight: Optional[str] = Query(None),  # Carrier's truck weight limit in lbs
     pickup_date: Optional[str] = Query(None),  # Earliest pickup date, e.g. "2026-02-15"
 ):
     """Search for available loads matching carrier preferences.
@@ -33,14 +35,16 @@ async def search(
     if validation_check != "VALID":
         raise HTTPException(status_code=403, detail="Carrier validation failed")
 
+    # Coerce empty strings to None; parse numeric strings to float.
+    # The voice AI sends "" when the carrier doesn't specify a value.
     loads = await search_loads(
-        origin=origin,
-        destination=destination,
-        equipment_type=equipment_type,
-        min_rate=min_rate,
-        max_rate=max_rate,
-        max_weight=max_weight,
-        pickup_date=pickup_date,
+        origin=origin or None,
+        destination=destination or None,
+        equipment_type=equipment_type or None,
+        min_rate=float(min_rate) if min_rate else None,
+        max_rate=float(max_rate) if max_rate else None,
+        max_weight=float(max_weight) if max_weight else None,
+        pickup_date=pickup_date or None,
     )
     return LoadResponse(loads=loads, total=len(loads))
 
