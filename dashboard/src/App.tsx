@@ -43,8 +43,6 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('Operations');
   const [dateFrom, setDateFrom] = useState('');   // ISO date string or empty for "no filter"
   const [dateTo, setDateTo] = useState('');
-  const [countdown, setCountdown] = useState(POLL_INTERVAL); // seconds until next auto-refresh
-
   // -- Data state (one slice per analytics domain, null = not yet loaded) --
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [operations, setOperations] = useState<OperationsData | null>(null);
@@ -93,22 +91,12 @@ export default function App() {
     fetchAll();
     const interval = setInterval(() => {
       fetchAll();
-      setCountdown(POLL_INTERVAL); // reset countdown after each auto-refresh
     }, POLL_INTERVAL * 1000);
     return () => clearInterval(interval);
   }, [fetchAll]);
 
-  // -- Effect 2: Countdown ticker (purely cosmetic, ticks every 1 second) --
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCountdown((c) => (c > 0 ? c - 1 : POLL_INTERVAL));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  /** Manual refresh: reset the countdown and fetch immediately. */
+  /** Manual refresh: fetch immediately. */
   const handleRefresh = () => {
-    setCountdown(POLL_INTERVAL);
     fetchAll();
   };
 
@@ -133,7 +121,6 @@ export default function App() {
         dateTo={dateTo}
         onDateChange={handleDateChange}
         onRefresh={handleRefresh}
-        countdown={countdown}
       />
 
       <main className="max-w-7xl mx-auto px-6 py-6">

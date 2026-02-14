@@ -17,10 +17,9 @@ interface HeaderProps {
   dateTo: string;                             // Current "to" date (ISO string or empty)
   onDateChange: (from: string, to: string) => void; // Called when either date input changes
   onRefresh: () => void;                      // Called when the user clicks Refresh
-  countdown: number;                          // Seconds remaining until next auto-refresh
 }
 
-export default function Header({ dateFrom, dateTo, onDateChange, onRefresh, countdown }: HeaderProps) {
+export default function Header({ dateFrom, dateTo, onDateChange, onRefresh }: HeaderProps) {
   return (
     <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
       {/* Left side: app branding */}
@@ -56,10 +55,9 @@ export default function Header({ dateFrom, dateTo, onDateChange, onRefresh, coun
             next automatic poll so the user knows fresh data is always on its way. */}
         <button
           onClick={onRefresh}
-          className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+          className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
         >
           Refresh
-          <span className="text-blue-200 text-xs">({countdown}s)</span>
         </button>
       </div>
     </header>
