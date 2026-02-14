@@ -1,10 +1,22 @@
-from typing import Optional
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BeforeValidator
 
 from app.dependencies import verify_api_key
 from app.loads.models import Load, LoadResponse
 from app.loads.service import get_load_by_id, search_loads
+
+
+def _empty_to_none(v):
+    """Coerce empty strings to None so Pydantic doesn't choke on \"\" for floats."""
+    if v == "":
+        return None
+    return v
+
+
+NullableFloat = Annotated[Optional[float], BeforeValidator(_empty_to_none)]
+NullableStr = Annotated[Optional[str], BeforeValidator(_empty_to_none)]
 
 # All routes under /api/loads require a valid API key in the X-API-Key header.
 # The verify_api_key dependency runs before every endpoint in this router.
