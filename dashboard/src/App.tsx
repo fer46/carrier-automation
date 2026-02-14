@@ -20,8 +20,9 @@
  *      the user when the next automatic data refresh will happen.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Header from './components/Header';
+import type { TimeRange } from './components/Header';
 import KPICard from './components/KPICard';
 import OperationsTab from './components/OperationsTab';
 import NegotiationsTab from './components/NegotiationsTab';
@@ -30,19 +31,25 @@ import CarriersTab from './components/CarriersTab';
 import { api } from './api';
 import type { SummaryData, OperationsData, NegotiationsData, CarriersData } from './types';
 
-// The four dashboard tabs.  `as const` gives us a literal tuple type so
-// `Tab` becomes the union "Operations" | "Negotiations" | "AI Quality" | "Carriers".
 const TABS = ['Operations', 'Negotiations', 'Carriers'] as const;
 type Tab = typeof TABS[number];
 
-// How often (in seconds) the dashboard automatically re-fetches all data.
 const POLL_INTERVAL = 30;
+
+/** Map a TimeRange to the number of days to look back. */
+const RANGE_DAYS: Record<TimeRange, number> = { '1d': 1, '7d': 7, '30d': 30 };
+
+/** Return an ISO date string (YYYY-MM-DD) for `daysAgo` days before today. */
+function daysAgoISO(daysAgo: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return d.toISOString().slice(0, 10);
+}
 
 export default function App() {
   // -- UI state --
   const [activeTab, setActiveTab] = useState<Tab>('Operations');
-  const [dateFrom, setDateFrom] = useState('');   // ISO date string or empty for "no filter"
-  const [dateTo, setDateTo] = useState('');
+  const [timeRange, setTimeRange] = useState<TimeRange>('1d');
   // -- Data state (one slice per analytics domain, null = not yet loaded) --
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [operations, setOperations] = useState<OperationsData | null>(null);
@@ -51,26 +58,19 @@ export default function App() {
   const [carriers, setCarriers] = useState<CarriersData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  /**
-   * Fetch all five analytics endpoints in parallel.
-   *
-   * Memoised on dateFrom/dateTo so that changing the date range automatically
-   * triggers a re-fetch via the useEffect below.  Empty date strings are
-   * converted to `undefined` so the API client omits them from the query string,
-   * causing the backend to return data for the full available range.
-   */
+  // Derive ISO date strings from the selected time range.
+  const dateFrom = useMemo(() => daysAgoISO(RANGE_DAYS[timeRange]), [timeRange]);
+  const dateTo = useMemo(() => daysAgoISO(0), [timeRange]);
+
   const fetchAll = useCallback(async () => {
     try {
       setLoading(true);
-      const from = dateFrom || undefined;
-      const to = dateTo || undefined;
 
-      // Fire all five requests concurrently for faster page loads.
       const [s, o, n, c] = await Promise.all([
-        api.getSummary(from, to),
-        api.getOperations(from, to),
-        api.getNegotiations(from, to),
-        api.getCarriers(from, to),
+        api.getSummary(dateFrom, dateTo),
+        api.getOperations(dateFrom, dateTo),
+        api.getNegotiations(dateFrom, dateTo),
+        api.getCarriers(dateFrom, dateTo),
       ]);
 
       setSummary(s);
@@ -78,15 +78,12 @@ export default function App() {
       setNegotiations(n);
       setCarriers(c);
     } catch (err) {
-      // Log but don't crash -- stale data is better than a blank screen.
       console.error('Failed to fetch analytics:', err);
     } finally {
       setLoading(false);
     }
   }, [dateFrom, dateTo]);
 
-  // -- Effect 1: Initial fetch + auto-refresh polling --
-  // Runs on mount and whenever fetchAll changes (i.e. when dates change).
   useEffect(() => {
     fetchAll();
     const interval = setInterval(() => {
@@ -95,16 +92,8 @@ export default function App() {
     return () => clearInterval(interval);
   }, [fetchAll]);
 
-  /** Manual refresh: fetch immediately. */
   const handleRefresh = () => {
     fetchAll();
-  };
-
-  /** Update both date inputs; the useCallback dependency on dateFrom/dateTo
-   *  will cause fetchAll to be recreated, triggering the polling effect. */
-  const handleDateChange = (from: string, to: string) => {
-    setDateFrom(from);
-    setDateTo(to);
   };
 
   // Detect the "zero data" state: the API responded successfully but there
@@ -117,9 +106,8 @@ export default function App() {
 
       {/* ------- Sticky header with branding, date picker, and refresh ------- */}
       <Header
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        onDateChange={handleDateChange}
+        activeRange={timeRange}
+        onRangeChange={setTimeRange}
         onRefresh={handleRefresh}
       />
 
