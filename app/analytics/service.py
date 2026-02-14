@@ -638,7 +638,7 @@ async def get_ai_quality(
     ]
 
     # Tone distribution
-    tone_quality_distribution = {row["_id"]: row["count"] for row in r4}
+    tone_quality_distribution = {row["_id"]: row["count"] for row in r4 if row["_id"] is not None}
 
     return AIQualityResponse(
         protocol_compliance_rate=compliance_rate,
@@ -845,7 +845,7 @@ async def get_carriers(
     r7 = await db.call_records.aggregate(p7).to_list(length=None)
 
     # Sentiment distribution
-    sentiment_distribution = {row["_id"]: row["count"] for row in r1}
+    sentiment_distribution = {row["_id"]: row["count"] for row in r1 if row["_id"] is not None}
 
     # Sentiment over time
     sentiment_over_time = [
@@ -859,7 +859,7 @@ async def get_carriers(
     ]
 
     # Engagement levels
-    engagement_levels = {row["_id"]: row["count"] for row in r3}
+    engagement_levels = {row["_id"]: row["count"] for row in r3 if row["_id"] is not None}
 
     # Future interest rate
     future_interest_rate = 0.0
