@@ -15,6 +15,7 @@ router = APIRouter(prefix="/api/loads", tags=["loads"], dependencies=[Depends(ve
 async def search(
     # All search params are optional — omitting all returns every load in the DB.
     # These come from the voice AI after extracting carrier preferences from the call.
+    validation_check: str = Query(...),  # Must be "VALID" — guardrail to ensure carrier is validated
     origin: Optional[str] = Query(None),  # e.g. "Denver" — where the carrier is now
     destination: Optional[str] = Query(None),  # e.g. "Chicago" — where they want to go
     equipment_type: Optional[str] = Query(None),  # e.g. "Dry Van" — what truck they have
@@ -29,6 +30,9 @@ async def search(
     desired destination, and equipment type. Returns all matching loads
     so the AI can offer the best options to the carrier.
     """
+    if validation_check != "VALID":
+        raise HTTPException(status_code=403, detail="Carrier validation failed")
+
     loads = await search_loads(
         origin=origin,
         destination=destination,
