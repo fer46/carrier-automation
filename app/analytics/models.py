@@ -19,20 +19,20 @@ class _WebhookModel(BaseModel):
             return {k: (None if v == "" else v) for k, v in data.items()}
         return data
 
-class SystemData(BaseModel):
+class SystemData(_WebhookModel):
     call_id: str
-    call_startedat: datetime
+    call_startedat: Optional[datetime] = None
     call_duration: int
 
 
-class FMCSAData(BaseModel):
+class FMCSAData(_WebhookModel):
     carrier_mc_number: int
     carrier_name: str
     carrier_validation_result: str
     retrieval_date: str
 
 
-class LoadData(BaseModel):
+class LoadData(_WebhookModel):
     load_id_discussed: str
     alternate_loads_presented: int
 
