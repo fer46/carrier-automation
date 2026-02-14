@@ -1,3 +1,4 @@
+from datetime import datetime, time
 from typing import Optional
 
 from app.analytics.models import (
@@ -28,9 +29,13 @@ def _build_date_match(
     if date_from or date_to:
         date_filter: dict = {}
         if date_from:
-            date_filter["$gte"] = date_from
+            date_filter["$gte"] = datetime.combine(
+                datetime.strptime(date_from, "%Y-%m-%d").date(), time.min
+            )
         if date_to:
-            date_filter["$lte"] = date_to
+            date_filter["$lte"] = datetime.combine(
+                datetime.strptime(date_to, "%Y-%m-%d").date(), time.max
+            )
         match["system.call_startedat"] = date_filter
     return match
 
