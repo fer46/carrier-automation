@@ -1,4 +1,4 @@
-from datetime import datetime, time
+from datetime import datetime, time, timezone
 from typing import Optional
 
 from app.analytics.models import (
@@ -36,7 +36,7 @@ def _build_date_match(
             date_filter["$lte"] = datetime.combine(
                 datetime.strptime(date_to, "%Y-%m-%d").date(), time.max
             )
-        match["system.call_startedat"] = date_filter
+        match["ingested_at"] = date_filter
     return match
 
 
@@ -47,7 +47,10 @@ async def ingest_call_record(record: dict) -> str:
 
     result = await db.call_records.update_one(
         {"system.call_id": call_id},
-        {"$set": record},
+        {
+            "$set": record,
+            "$setOnInsert": {"ingested_at": datetime.now(tz=timezone.utc)},
+        },
         upsert=True,
     )
 
@@ -202,7 +205,7 @@ async def get_operations(
                 "_id": {
                     "$dateToString": {
                         "format": "%Y-%m-%d",
-                        "date": "$system.call_startedat",
+                        "date": "$ingested_at",
                     }
                 },
                 "count": {"$sum": 1},
@@ -579,7 +582,7 @@ async def get_ai_quality(
                 "_id": {
                     "$dateToString": {
                         "format": "%Y-%m-%d",
-                        "date": "$system.call_startedat",
+                        "date": "$ingested_at",
                     }
                 },
                 "avg": {
@@ -682,7 +685,7 @@ async def get_carriers(
                 "_id": {
                     "$dateToString": {
                         "format": "%Y-%m-%d",
-                        "date": "$system.call_startedat",
+                        "date": "$ingested_at",
                     }
                 },
                 "positive": {

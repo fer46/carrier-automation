@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -13,7 +14,6 @@ API_KEY = settings.API_KEY
 SAMPLE_CALL_RECORD = {
     "system": {
         "call_id": "test-call-001",
-        "call_startedat": "2024-06-15T10:30:00Z",
         "call_duration": 245
     },
     "fmcsa_data": {
@@ -128,6 +128,46 @@ async def test_ingest_call_record_validates_body(ingest_client):
         "/api/analytics/calls", json={"bad": "data"}
     )
     assert response.status_code == 422
+
+
+async def test_ingest_sets_ingested_at_on_insert():
+    """ingest_call_record uses $setOnInsert to stamp ingested_at on new records."""
+    mock_db = _make_mock_db(find_one_result=None)
+    mock_db.call_records.update_one = AsyncMock(
+        return_value=MagicMock(upserted_id="new")
+    )
+    with patch("app.analytics.service.get_database", return_value=mock_db):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            ac.headers["X-API-Key"] = API_KEY
+            before = datetime.now(tz=timezone.utc)
+            await ac.post("/api/analytics/calls", json=SAMPLE_CALL_RECORD)
+            after = datetime.now(tz=timezone.utc)
+
+    # Verify update_one was called with $setOnInsert containing ingested_at
+    call_args = mock_db.call_records.update_one.call_args
+    update_doc = call_args[0][1]  # second positional arg is the update document
+    assert "$setOnInsert" in update_doc
+    ts = update_doc["$setOnInsert"]["ingested_at"]
+    assert isinstance(ts, datetime)
+    assert before <= ts <= after
+
+
+async def test_summary_date_filter_uses_ingested_at():
+    """Date-filtered summary queries must filter on ingested_at, not system.call_startedat."""
+    mock_db = _make_mock_db(aggregate_result=[])
+    with patch("app.analytics.service.get_database", return_value=mock_db):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            ac.headers["X-API-Key"] = API_KEY
+            await ac.get("/api/analytics/summary?from=2026-01-01&to=2026-12-31")
+
+    # Inspect the pipeline passed to aggregate
+    pipeline = mock_db.call_records.aggregate.call_args[0][0]
+    match_stage = pipeline[0]
+    assert "$match" in match_stage
+    assert "ingested_at" in match_stage["$match"]
+    assert "system.call_startedat" not in match_stage["$match"]
 
 
 # --- Summary Tests ---

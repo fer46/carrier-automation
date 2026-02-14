@@ -21,7 +21,7 @@ class _WebhookModel(BaseModel):
 
 class SystemData(_WebhookModel):
     call_id: str
-    call_startedat: Optional[datetime] = None
+    call_endedat: Optional[datetime] = None
     call_duration: int
 
 
