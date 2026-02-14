@@ -6,6 +6,17 @@ from app.database import get_database
 from app.loads.models import Load
 
 
+def _apply_pricing(load: Load) -> Load:
+    """Calculate target and cap carrier rates from the loadboard (shipper) rate.
+
+    - target_carrier_rate: 12% broker margin → carrier gets 88% of loadboard rate
+    - cap_carrier_rate: 5% broker margin → carrier gets 95% of loadboard rate
+    """
+    load.target_carrier_rate = round(load.loadboard_rate * 0.88, 2)
+    load.cap_carrier_rate = round(load.loadboard_rate * 0.95, 2)
+    return load
+
+
 def _score_load(
     load: Load,
     origin: Optional[str] = None,
@@ -160,7 +171,8 @@ async def search_loads(
     results = await cursor.to_list(length=100)
 
     # Convert raw MongoDB dicts into validated Pydantic Load models
-    loads = [Load(**doc) for doc in results]
+    # and apply pricing calculations (target and cap carrier rates)
+    loads = [_apply_pricing(Load(**doc)) for doc in results]
 
     # --- Relevance ranking ---
     # Sort loads by how well they match the carrier's search criteria.
@@ -189,4 +201,4 @@ async def get_load_by_id(load_id: str) -> Optional[Load]:
     doc = await db.loads.find_one({"load_id": load_id}, {"_id": 0})
     if not doc:
         return None
-    return Load(**doc)
+    return _apply_pricing(Load(**doc))
