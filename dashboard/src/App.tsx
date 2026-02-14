@@ -25,14 +25,14 @@ import Header from './components/Header';
 import KPICard from './components/KPICard';
 import OperationsTab from './components/OperationsTab';
 import NegotiationsTab from './components/NegotiationsTab';
-import AIQualityTab from './components/AIQualityTab';
+
 import CarriersTab from './components/CarriersTab';
 import { api } from './api';
-import type { SummaryData, OperationsData, NegotiationsData, AIQualityData, CarriersData } from './types';
+import type { SummaryData, OperationsData, NegotiationsData, CarriersData } from './types';
 
 // The four dashboard tabs.  `as const` gives us a literal tuple type so
 // `Tab` becomes the union "Operations" | "Negotiations" | "AI Quality" | "Carriers".
-const TABS = ['Operations', 'Negotiations', 'AI Quality', 'Carriers'] as const;
+const TABS = ['Operations', 'Negotiations', 'Carriers'] as const;
 type Tab = typeof TABS[number];
 
 // How often (in seconds) the dashboard automatically re-fetches all data.
@@ -49,7 +49,7 @@ export default function App() {
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [operations, setOperations] = useState<OperationsData | null>(null);
   const [negotiations, setNegotiations] = useState<NegotiationsData | null>(null);
-  const [aiQuality, setAIQuality] = useState<AIQualityData | null>(null);
+
   const [carriers, setCarriers] = useState<CarriersData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -68,18 +68,16 @@ export default function App() {
       const to = dateTo || undefined;
 
       // Fire all five requests concurrently for faster page loads.
-      const [s, o, n, a, c] = await Promise.all([
+      const [s, o, n, c] = await Promise.all([
         api.getSummary(from, to),
         api.getOperations(from, to),
         api.getNegotiations(from, to),
-        api.getAIQuality(from, to),
         api.getCarriers(from, to),
       ]);
 
       setSummary(s);
       setOperations(o);
       setNegotiations(n);
-      setAIQuality(a);
       setCarriers(c);
     } catch (err) {
       // Log but don't crash -- stale data is better than a blank screen.
@@ -156,7 +154,6 @@ export default function App() {
             <KPICard label="Total Calls" value={summary.total_calls} color="blue" />
             <KPICard label="Acceptance Rate" value={summary.acceptance_rate} format="percent" color="green" />
             <KPICard label="Avg Margin" value={summary.avg_margin_percent} format="percent" color="green" />
-            <KPICard label="Protocol Compliance" value={summary.ai_protocol_compliance} format="percent" color="amber" />
             <KPICard label="Avg Duration" value={summary.avg_call_duration} format="duration" color="slate" />
             <KPICard label="Avg Negotiation Rounds" value={summary.avg_negotiation_rounds} color="slate" />
             <KPICard label="Unique Carriers" value={summary.total_carriers} color="blue" />
@@ -195,7 +192,6 @@ export default function App() {
               <>
                 {activeTab === 'Operations' && <OperationsTab data={operations} />}
                 {activeTab === 'Negotiations' && <NegotiationsTab data={negotiations} />}
-                {activeTab === 'AI Quality' && <AIQualityTab data={aiQuality} />}
                 {activeTab === 'Carriers' && <CarriersTab data={carriers} />}
               </>
             )}

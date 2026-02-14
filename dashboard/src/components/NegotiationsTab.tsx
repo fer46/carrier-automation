@@ -103,40 +103,6 @@ export default function NegotiationsTab({ data }: Props) {
         </div>
       </div>
 
-      {/* ------- Section 3: Strategy Effectiveness Table ------- */}
-      <div className="bg-slate-50 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-slate-700 mb-3">Strategy Effectiveness</h3>
-        {data.strategy_effectiveness.length === 0 ? <EmptyState message="No strategy data" /> : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-slate-500 border-b border-slate-200">
-                  <th className="pb-2 font-medium">Strategy</th>
-                  <th className="pb-2 font-medium">Accept Rate</th>
-                  <th className="pb-2 font-medium">Avg Rounds</th>
-                  <th className="pb-2 font-medium">Count</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.strategy_effectiveness.map((row) => (
-                  <tr key={row.strategy} className="border-b border-slate-100">
-                    <td className="py-2 font-medium text-slate-700">{row.strategy}</td>
-                    <td className="py-2">
-                      {/* Colour-coded acceptance rate:
-                          >= 70% green (strong), >= 50% amber (acceptable), < 50% red (weak). */}
-                      <span className={row.acceptance_rate >= 70 ? 'text-emerald-600' : row.acceptance_rate >= 50 ? 'text-amber-600' : 'text-red-500'}>
-                        {row.acceptance_rate}%
-                      </span>
-                    </td>
-                    <td className="py-2 text-slate-600">{row.avg_rounds}</td>
-                    <td className="py-2 text-slate-600">{row.count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
