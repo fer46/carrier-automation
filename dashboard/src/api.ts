@@ -17,7 +17,6 @@ import type {
   SummaryData,
   OperationsData,
   NegotiationsData,
-  AIQualityData,
   CarriersData,
 } from './types';
 
@@ -76,10 +75,6 @@ export const api = {
   /** Fetch negotiation metrics (rate progression, margins, strategy comparison). */
   getNegotiations: (from?: string, to?: string) =>
     fetchAPI<NegotiationsData>(`${BASE}/negotiations`, { from: from || '', to: to || '' }),
-
-  /** Fetch AI quality metrics (compliance, violations, interruptions, tone). */
-  getAIQuality: (from?: string, to?: string) =>
-    fetchAPI<AIQualityData>(`${BASE}/ai-quality`, { from: from || '', to: to || '' }),
 
   /** Fetch carrier-focused metrics (sentiment, engagement, objections, leaderboard). */
   getCarriers: (from?: string, to?: string) =>

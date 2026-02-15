@@ -21,7 +21,6 @@ class _WebhookModel(BaseModel):
 
 class SystemData(_WebhookModel):
     call_id: str
-    call_endedat: Optional[datetime] = None
     call_duration: int
 
 
@@ -35,11 +34,20 @@ class FMCSAData(_WebhookModel):
 class LoadData(_WebhookModel):
     load_id_discussed: str
     alternate_loads_presented: int
+    loadboard_rate: Optional[float] = None
+    origin: Optional[str] = None
+    destination: Optional[str] = None
+    carrier_requested_lane: Optional[str] = None
+    equipment_type: Optional[str] = None
+    miles: Optional[float] = None
+    pickup_datetime: Optional[str] = None
+    delivery_datetime: Optional[str] = None
 
 
 class Outcome(_WebhookModel):
     call_outcome: str
     rejection_reason: Optional[str] = None
+    funnel_stage_reached: Optional[str] = None
 
 
 class Sentiment(_WebhookModel):
@@ -118,7 +126,9 @@ class SummaryResponse(BaseModel):
     avg_call_duration: float
     avg_negotiation_rounds: float
     avg_margin_percent: float
-    ai_protocol_compliance: float
+    total_booked_revenue: float
+    total_margin_earned: float
+    avg_rate_per_mile: float
     total_carriers: int
 
 
@@ -137,12 +147,19 @@ class ReasonCount(BaseModel):
     count: int
 
 
+class FunnelStage(BaseModel):
+    stage: str
+    count: int
+    drop_off_percent: float
+
+
 class OperationsResponse(BaseModel):
     calls_over_time: list[TimeSeriesPoint]
     outcome_distribution: dict[str, int]
     avg_duration_over_time: list[DurationTimeSeriesPoint]
     rejection_reasons: list[ReasonCount]
     transfer_rate: float
+    funnel: list[FunnelStage]
 
 
 class RateProgressionPoint(BaseModel):
@@ -208,6 +225,16 @@ class CarrierLeaderboardRow(BaseModel):
     acceptance_rate: float
 
 
+class LaneCount(BaseModel):
+    lane: str
+    count: int
+
+
+class EquipmentCount(BaseModel):
+    equipment_type: str
+    count: int
+
+
 class CarriersResponse(BaseModel):
     sentiment_distribution: dict[str, int]
     sentiment_over_time: list[dict]
@@ -216,3 +243,6 @@ class CarriersResponse(BaseModel):
     top_objections: list[ObjectionCount]
     top_questions: list[QuestionCount]
     carrier_leaderboard: list[CarrierLeaderboardRow]
+    top_requested_lanes: list[LaneCount]
+    top_actual_lanes: list[LaneCount]
+    equipment_distribution: list[EquipmentCount]

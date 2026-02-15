@@ -24,7 +24,15 @@ SAMPLE_CALL_RECORD = {
     },
     "load_data": {
         "load_id_discussed": "LD-001",
-        "alternate_loads_presented": 1
+        "alternate_loads_presented": 1,
+        "loadboard_rate": 2200.00,
+        "origin": "Chicago, IL",
+        "destination": "Dallas, TX",
+        "carrier_requested_lane": "Chicago, IL → Dallas, TX",
+        "equipment_type": "Dry Van",
+        "miles": 920.0,
+        "pickup_datetime": "2026-02-14T08:00:00",
+        "delivery_datetime": "2026-02-15T18:00:00"
     },
     "transcript_extraction": {
         "negotiation": {
@@ -39,7 +47,8 @@ SAMPLE_CALL_RECORD = {
         },
         "outcome": {
             "call_outcome": "accepted",
-            "rejection_reason": None
+            "rejection_reason": None,
+            "funnel_stage_reached": "transferred_to_sales"
         },
         "sentiment": {
             "call_sentiment": "positive",
@@ -181,7 +190,9 @@ async def summary_client():
         "avg_duration": 245.5,
         "avg_rounds": 2.1,
         "avg_margin": 8.4,
-        "protocol_compliant": 9,
+        "total_booked_revenue": 14000.0,
+        "total_margin_earned": 1400.0,
+        "avg_rate_per_mile": 2.17,
         "unique_carriers": [1234, 5678, 9012, 3456, 7890],
     }])
     with patch("app.analytics.service.get_database", return_value=mock_db):
@@ -198,8 +209,11 @@ async def test_summary_returns_200(summary_client):
     assert data["total_calls"] == 10
     assert data["acceptance_rate"] == 70.0
     assert data["avg_call_duration"] == 245.5
-    assert data["ai_protocol_compliance"] == 90.0
+    assert data["total_booked_revenue"] == 14000.0
+    assert data["total_margin_earned"] == 1400.0
+    assert data["avg_rate_per_mile"] == 2.17
     assert data["total_carriers"] == 5
+    assert "ai_protocol_compliance" not in data
 
 
 async def test_summary_empty_db():
@@ -244,6 +258,16 @@ async def operations_client():
             mock_cursor.to_list = AsyncMock(return_value=[
                 {"_id": None, "total": 10, "transferred": 1},
             ])
+        elif call_count == 5:
+            mock_cursor.to_list = AsyncMock(return_value=[
+                {"_id": "call_started", "count": 100},
+                {"_id": "fmcsa_verified", "count": 90},
+                {"_id": "load_matched", "count": 75},
+                {"_id": "offer_pitched", "count": 60},
+                {"_id": "negotiation_entered", "count": 45},
+                {"_id": "deal_agreed", "count": 30},
+                {"_id": "transferred_to_sales", "count": 20},
+            ])
         return mock_cursor
 
     mock_db = _make_mock_db()
@@ -263,6 +287,17 @@ async def test_operations_returns_200(operations_client):
     assert "accepted" in data["outcome_distribution"]
     assert len(data["rejection_reasons"]) == 1
     assert data["transfer_rate"] == 10.0
+    # Funnel assertions (cumulative: each stage includes records that reached it or later)
+    # Raw: call_started=100, fmcsa_verified=90, load_matched=75, offer_pitched=60,
+    #       negotiation_entered=45, deal_agreed=30, transferred_to_sales=20
+    # Cumulative: 420, 320, 230, 155, 95, 50, 20
+    assert len(data["funnel"]) == 7
+    assert data["funnel"][0]["stage"] == "call_started"
+    assert data["funnel"][0]["count"] == 420
+    assert data["funnel"][0]["drop_off_percent"] == 0.0
+    assert data["funnel"][-1]["stage"] == "transferred_to_sales"
+    assert data["funnel"][-1]["count"] == 20
+    assert data["funnel"][-1]["drop_off_percent"] == 95.2
 
 
 # --- Negotiations Tests ---
@@ -417,6 +452,22 @@ async def carriers_client():
             mock_cursor.to_list = AsyncMock(return_value=[
                 {"_id": 1234, "carrier_name": "TYROLER METALS", "calls": 5, "accepted": 4},
             ])
+        elif call_count == 8:
+            mock_cursor.to_list = AsyncMock(return_value=[
+                {"_id": "Chicago, IL → Dallas, TX", "count": 12},
+                {"_id": "Atlanta, GA → Miami, FL", "count": 8},
+            ])
+        elif call_count == 9:
+            mock_cursor.to_list = AsyncMock(return_value=[
+                {"_id": "Chicago, IL → Dallas, TX", "count": 10},
+                {"_id": "LA, CA → Phoenix, AZ", "count": 6},
+            ])
+        elif call_count == 10:
+            mock_cursor.to_list = AsyncMock(return_value=[
+                {"_id": "Dry Van", "count": 15},
+                {"_id": "Reefer", "count": 8},
+                {"_id": "Flatbed", "count": 3},
+            ])
         return mock_cursor
 
     mock_db = _make_mock_db()
@@ -437,3 +488,11 @@ async def test_carriers_returns_200(carriers_client):
     assert len(data["top_objections"]) == 1
     assert len(data["carrier_leaderboard"]) == 1
     assert data["carrier_leaderboard"][0]["acceptance_rate"] == 80.0
+    # Lane intelligence assertions
+    assert len(data["top_requested_lanes"]) == 2
+    assert data["top_requested_lanes"][0]["lane"] == "Chicago, IL → Dallas, TX"
+    assert data["top_requested_lanes"][0]["count"] == 12
+    assert len(data["top_actual_lanes"]) == 2
+    assert data["top_actual_lanes"][0]["lane"] == "Chicago, IL → Dallas, TX"
+    assert len(data["equipment_distribution"]) == 3
+    assert data["equipment_distribution"][0]["equipment_type"] == "Dry Van"

@@ -9,7 +9,6 @@ from fastapi.staticfiles import StaticFiles
 from app.analytics.router import router as analytics_router
 from app.database import connect_db, disconnect_db
 from app.loads.router import router as loads_router
-from app.negotiations.router import router as negotiations_router
 
 DASHBOARD_DIR = Path(__file__).resolve().parent.parent / "dashboard" / "dist"
 
@@ -35,7 +34,6 @@ app.add_middleware(
 )
 
 app.include_router(loads_router)
-app.include_router(negotiations_router)
 app.include_router(analytics_router)
 
 

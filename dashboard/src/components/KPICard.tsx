@@ -15,7 +15,7 @@
 interface KPICardProps {
   label: string;
   value: string | number;
-  format?: 'number' | 'percent' | 'duration';
+  format?: 'number' | 'percent' | 'duration' | 'dollar';
   color?: 'green' | 'amber' | 'blue' | 'slate';
 }
 
@@ -37,6 +37,8 @@ const colorMap = {
  */
 function formatValue(value: string | number, format?: string): string {
   if (typeof value === 'string') return value;
+  // Dollar: locale-formatted with "$" prefix.
+  if (format === 'dollar') return `$${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
   // Percentage: one decimal place with a "%" suffix.
   if (format === 'percent') return `${value.toFixed(1)}%`;
   // Duration: convert seconds into "Xm Ys" (minutes and seconds).

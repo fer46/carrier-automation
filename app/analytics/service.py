@@ -6,7 +6,10 @@ from app.analytics.models import (
     CarrierLeaderboardRow,
     CarriersResponse,
     DurationTimeSeriesPoint,
+    EquipmentCount,
+    FunnelStage,
     InterruptionTimeSeriesPoint,
+    LaneCount,
     MarginBucket,
     NegotiationsResponse,
     ObjectionCount,
@@ -102,7 +105,7 @@ async def get_summary(
                                 "$and": [
                                     {
                                         "$ne": [
-                                            "$transcript_extraction.negotiation.carrier_first_offer",
+                                            "$load_data.loadboard_rate",
                                             None,
                                         ]
                                     },
@@ -120,11 +123,11 @@ async def get_summary(
                                         "$divide": [
                                             {
                                                 "$subtract": [
-                                                    "$transcript_extraction.negotiation.carrier_first_offer",
+                                                    "$load_data.loadboard_rate",
                                                     "$transcript_extraction.negotiation.final_agreed_rate",
                                                 ]
                                             },
-                                            "$transcript_extraction.negotiation.carrier_first_offer",
+                                            "$load_data.loadboard_rate",
                                         ]
                                     },
                                     100,
@@ -134,17 +137,87 @@ async def get_summary(
                         ]
                     }
                 },
-                "protocol_compliant": {
+                "total_booked_revenue": {
                     "$sum": {
                         "$cond": [
                             {
-                                "$eq": [
-                                    "$transcript_extraction.performance.agent_followed_protocol",
-                                    True,
+                                "$and": [
+                                    {
+                                        "$eq": [
+                                            "$transcript_extraction.outcome.call_outcome",
+                                            "accepted",
+                                        ]
+                                    },
+                                    {
+                                        "$ne": [
+                                            "$transcript_extraction.negotiation.final_agreed_rate",
+                                            None,
+                                        ]
+                                    },
                                 ]
                             },
-                            1,
+                            "$transcript_extraction.negotiation.final_agreed_rate",
                             0,
+                        ]
+                    }
+                },
+                "total_margin_earned": {
+                    "$sum": {
+                        "$cond": [
+                            {
+                                "$and": [
+                                    {
+                                        "$eq": [
+                                            "$transcript_extraction.outcome.call_outcome",
+                                            "accepted",
+                                        ]
+                                    },
+                                    {
+                                        "$ne": [
+                                            "$load_data.loadboard_rate",
+                                            None,
+                                        ]
+                                    },
+                                    {
+                                        "$ne": [
+                                            "$transcript_extraction.negotiation.final_agreed_rate",
+                                            None,
+                                        ]
+                                    },
+                                ]
+                            },
+                            {
+                                "$subtract": [
+                                    "$load_data.loadboard_rate",
+                                    "$transcript_extraction.negotiation.final_agreed_rate",
+                                ]
+                            },
+                            0,
+                        ]
+                    }
+                },
+                "avg_rate_per_mile": {
+                    "$avg": {
+                        "$cond": [
+                            {
+                                "$and": [
+                                    {
+                                        "$ne": [
+                                            "$transcript_extraction.negotiation.final_agreed_rate",
+                                            None,
+                                        ]
+                                    },
+                                    {"$ne": ["$load_data.miles", None]},
+                                    {"$gt": ["$load_data.miles", 0]},
+                                ]
+                            },
+                            {
+                                "$divide": [
+                                    "$transcript_extraction.negotiation.final_agreed_rate",
+                                    "$load_data.miles",
+                                ]
+                            },
+                            None,
                         ]
                     }
                 },
@@ -165,7 +238,9 @@ async def get_summary(
             avg_call_duration=0.0,
             avg_negotiation_rounds=0.0,
             avg_margin_percent=0.0,
-            ai_protocol_compliance=0.0,
+            total_booked_revenue=0.0,
+            total_margin_earned=0.0,
+            avg_rate_per_mile=0.0,
             total_carriers=0,
         )
 
@@ -177,9 +252,9 @@ async def get_summary(
         avg_call_duration=round(row["avg_duration"] or 0.0, 1),
         avg_negotiation_rounds=round(row["avg_rounds"] or 0.0, 1),
         avg_margin_percent=round(row["avg_margin"] or 0.0, 1),
-        ai_protocol_compliance=(
-            round(row["protocol_compliant"] / total * 100, 1) if total else 0.0
-        ),
+        total_booked_revenue=round(row["total_booked_revenue"] or 0.0, 2),
+        total_margin_earned=round(row["total_margin_earned"] or 0.0, 2),
+        avg_rate_per_mile=round(row["avg_rate_per_mile"] or 0.0, 2),
         total_carriers=len(row["unique_carriers"]),
     )
 
@@ -273,10 +348,28 @@ async def get_operations(
         }
     )
 
+    # --- Pipeline 5: conversion funnel ---
+    p5: list[dict] = []
+    funnel_match: dict = {
+        "transcript_extraction.outcome.funnel_stage_reached": {"$ne": None}
+    }
+    if date_match:
+        funnel_match.update(date_match)
+    p5.append({"$match": funnel_match})
+    p5.append(
+        {
+            "$group": {
+                "_id": "$transcript_extraction.outcome.funnel_stage_reached",
+                "count": {"$sum": 1},
+            }
+        }
+    )
+
     r1 = await db.call_records.aggregate(p1).to_list(length=None)
     r2 = await db.call_records.aggregate(p2).to_list(length=None)
     r3 = await db.call_records.aggregate(p3).to_list(length=None)
     r4 = await db.call_records.aggregate(p4).to_list(length=1)
+    r5 = await db.call_records.aggregate(p5).to_list(length=None)
 
     calls_over_time = [
         TimeSeriesPoint(date=row["_id"], count=row["count"]) for row in r1
@@ -296,12 +389,49 @@ async def get_operations(
         transferred = r4[0]["transferred"]
         transfer_rate = round(transferred / total * 100, 1) if total else 0.0
 
+    # Build funnel with cumulative counts (each stage includes all records
+    # that passed through it, i.e. records at later stages count toward
+    # earlier ones).
+    funnel_stages_order = [
+        "call_started",
+        "fmcsa_verified",
+        "load_matched",
+        "offer_pitched",
+        "negotiation_entered",
+        "deal_agreed",
+        "transferred_to_sales",
+    ]
+    stage_counts_raw = {row["_id"]: row["count"] for row in r5}
+
+    # Cumulative: a record that reached stage N also passed through stages 0..N-1.
+    # Accumulate from bottom up.
+    stage_cumulative: dict[str, int] = {}
+    running = 0
+    for stage in reversed(funnel_stages_order):
+        running += stage_counts_raw.get(stage, 0)
+        stage_cumulative[stage] = running
+
+    first_count = stage_cumulative.get(funnel_stages_order[0], 0)
+    funnel = [
+        FunnelStage(
+            stage=stage,
+            count=stage_cumulative.get(stage, 0),
+            drop_off_percent=(
+                round((1 - stage_cumulative.get(stage, 0) / first_count) * 100, 1)
+                if first_count > 0
+                else 0.0
+            ),
+        )
+        for stage in funnel_stages_order
+    ]
+
     return OperationsResponse(
         calls_over_time=calls_over_time,
         outcome_distribution=outcome_distribution,
         avg_duration_over_time=avg_duration_over_time,
         rejection_reasons=rejection_reasons,
         transfer_rate=transfer_rate,
+        funnel=funnel,
     )
 
 
@@ -360,7 +490,7 @@ async def get_negotiations(
     # --- Pipeline 3: margin distribution ---
     p3: list[dict] = []
     margin_match: dict = {
-        "transcript_extraction.negotiation.carrier_first_offer": {"$ne": None},
+        "load_data.loadboard_rate": {"$ne": None},
         "transcript_extraction.negotiation.final_agreed_rate": {"$ne": None},
     }
     if date_match:
@@ -375,11 +505,11 @@ async def get_negotiations(
                             "$divide": [
                                 {
                                     "$subtract": [
-                                        "$transcript_extraction.negotiation.carrier_first_offer",
+                                        "$load_data.loadboard_rate",
                                         "$transcript_extraction.negotiation.final_agreed_rate",
                                     ]
                                 },
-                                "$transcript_extraction.negotiation.carrier_first_offer",
+                                "$load_data.loadboard_rate",
                             ]
                         },
                         100,
@@ -836,6 +966,55 @@ async def get_carriers(
     p7.append({"$sort": {"calls": -1}})
     p7.append({"$limit": 20})
 
+    # --- Pipeline 8: top requested lanes ---
+    p8: list[dict] = []
+    req_lane_match: dict = {"load_data.carrier_requested_lane": {"$ne": None}}
+    if date_match:
+        req_lane_match.update(date_match)
+    p8.append({"$match": req_lane_match})
+    p8.append(
+        {"$group": {"_id": "$load_data.carrier_requested_lane", "count": {"$sum": 1}}}
+    )
+    p8.append({"$sort": {"count": -1}})
+    p8.append({"$limit": 10})
+
+    # --- Pipeline 9: top actual lanes ---
+    p9: list[dict] = []
+    actual_lane_match: dict = {
+        "load_data.origin": {"$ne": None},
+        "load_data.destination": {"$ne": None},
+    }
+    if date_match:
+        actual_lane_match.update(date_match)
+    p9.append({"$match": actual_lane_match})
+    p9.append(
+        {
+            "$group": {
+                "_id": {
+                    "$concat": [
+                        "$load_data.origin",
+                        " → ",
+                        "$load_data.destination",
+                    ]
+                },
+                "count": {"$sum": 1},
+            }
+        }
+    )
+    p9.append({"$sort": {"count": -1}})
+    p9.append({"$limit": 10})
+
+    # --- Pipeline 10: equipment distribution ---
+    p10: list[dict] = []
+    equip_match: dict = {"load_data.equipment_type": {"$ne": None}}
+    if date_match:
+        equip_match.update(date_match)
+    p10.append({"$match": equip_match})
+    p10.append(
+        {"$group": {"_id": "$load_data.equipment_type", "count": {"$sum": 1}}}
+    )
+    p10.append({"$sort": {"count": -1}})
+
     r1 = await db.call_records.aggregate(p1).to_list(length=None)
     r2 = await db.call_records.aggregate(p2).to_list(length=None)
     r3 = await db.call_records.aggregate(p3).to_list(length=None)
@@ -843,6 +1022,9 @@ async def get_carriers(
     r5 = await db.call_records.aggregate(p5).to_list(length=None)
     r6 = await db.call_records.aggregate(p6).to_list(length=None)
     r7 = await db.call_records.aggregate(p7).to_list(length=None)
+    r8 = await db.call_records.aggregate(p8).to_list(length=None)
+    r9 = await db.call_records.aggregate(p9).to_list(length=None)
+    r10 = await db.call_records.aggregate(p10).to_list(length=None)
 
     # Sentiment distribution
     sentiment_distribution = {row["_id"]: row["count"] for row in r1 if row["_id"] is not None}
@@ -891,6 +1073,17 @@ async def get_carriers(
         for row in r7
     ]
 
+    # Lane intelligence
+    top_requested_lanes = [
+        LaneCount(lane=row["_id"], count=row["count"]) for row in r8
+    ]
+    top_actual_lanes = [
+        LaneCount(lane=row["_id"], count=row["count"]) for row in r9
+    ]
+    equipment_distribution = [
+        EquipmentCount(equipment_type=row["_id"], count=row["count"]) for row in r10
+    ]
+
     return CarriersResponse(
         sentiment_distribution=sentiment_distribution,
         sentiment_over_time=sentiment_over_time,
@@ -899,4 +1092,7 @@ async def get_carriers(
         top_objections=top_objections,
         top_questions=top_questions,
         carrier_leaderboard=carrier_leaderboard,
+        top_requested_lanes=top_requested_lanes,
+        top_actual_lanes=top_actual_lanes,
+        equipment_distribution=equipment_distribution,
     )
