@@ -34,7 +34,7 @@ import type { SummaryData, OperationsData, NegotiationsData, CarriersData } from
 const TABS = ['Operations', 'Negotiations', 'Carriers'] as const;
 type Tab = typeof TABS[number];
 
-const POLL_INTERVAL = 30;
+const POLL_INTERVAL = 300;
 
 /** Map a TimeRange to the number of days to look back. */
 const RANGE_DAYS: Record<TimeRange, number> = { '1d': 1, '7d': 7, '30d': 30 };

@@ -100,23 +100,7 @@ export default function CarriersTab({ data }: Props) {
           )}
         </div>
 
-        {/* Top Carrier Questions: horizontal bar chart ranking the most common
-            questions carriers ask during calls (useful for improving scripts). */}
-        <div className="bg-slate-50 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">Top Carrier Questions</h3>
-          {data.top_questions.length === 0 ? <EmptyState message="No questions recorded" /> : (
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={data.top_questions} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis type="number" tick={{ fontSize: 12 }} stroke="#94a3b8" />
-                {/* Wider Y-axis (180px) to accommodate longer question text. */}
-                <YAxis type="category" dataKey="question" tick={{ fontSize: 11 }} stroke="#94a3b8" width={180} />
-                <Tooltip />
-                <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
+
       </div>
 
       {/* ------- Lane Intelligence Section ------- */}
