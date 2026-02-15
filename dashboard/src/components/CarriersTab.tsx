@@ -119,6 +119,62 @@ export default function CarriersTab({ data }: Props) {
         </div>
       </div>
 
+      {/* ------- Lane Intelligence Section ------- */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* Top Requested Lanes */}
+        <div className="bg-slate-50 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">Top Requested Lanes</h3>
+          {data.top_requested_lanes.length === 0 ? <EmptyState message="No lane data yet" /> : (
+            <div className="space-y-2">
+              {data.top_requested_lanes.map((lane, i) => (
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-700 truncate mr-2">{lane.lane}</span>
+                  <span className="text-slate-500 font-medium shrink-0">{lane.count}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Top Actual Lanes */}
+        <div className="bg-slate-50 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">Top Actual Lanes</h3>
+          {data.top_actual_lanes.length === 0 ? <EmptyState message="No lane data yet" /> : (
+            <div className="space-y-2">
+              {data.top_actual_lanes.map((lane, i) => (
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-700 truncate mr-2">{lane.lane}</span>
+                  <span className="text-slate-500 font-medium shrink-0">{lane.count}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Equipment Types */}
+        <div className="bg-slate-50 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">Equipment Types</h3>
+          {data.equipment_distribution.length === 0 ? <EmptyState message="No equipment data yet" /> : (
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie
+                  data={data.equipment_distribution.map((e) => ({ name: e.equipment_type, value: e.count }))}
+                  cx="50%" cy="50%" innerRadius={40} outerRadius={70}
+                  dataKey="value" nameKey="name"
+                  label={({ name, value }) => `${name} (${value})`}
+                >
+                  {data.equipment_distribution.map((_, i) => (
+                    <Cell key={i} fill={ENG_COLORS[i % ENG_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+
       {/* ------- Section 2: Future Interest Rate + Carrier Leaderboard ------- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 

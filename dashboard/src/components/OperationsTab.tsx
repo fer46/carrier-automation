@@ -40,8 +40,53 @@ export default function OperationsTab({ data }: Props) {
   // Pre-compute the total so each pie label can show a percentage.
   const total = outcomeData.reduce((s, d) => s + d.value, 0);
 
+  // Map internal stage names to human-readable labels for the funnel chart.
+  const stageLabels: Record<string, string> = {
+    call_started: 'Call Started',
+    fmcsa_verified: 'FMCSA Verified',
+    load_matched: 'Load Matched',
+    offer_pitched: 'Offer Pitched',
+    negotiation_entered: 'Negotiation Entered',
+    deal_agreed: 'Deal Agreed',
+    transferred_to_sales: 'Transferred to Sales',
+  };
+
+  const funnelData = data.funnel.map((s) => ({
+    ...s,
+    label: stageLabels[s.stage] || s.stage,
+  }));
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      {/* ------- Conversion Funnel (full-width horizontal bar chart) ------- */}
+      <div className="bg-slate-50 rounded-lg p-4 lg:col-span-2">
+        <h3 className="text-sm font-semibold text-slate-700 mb-3">Conversion Funnel</h3>
+        {funnelData.length === 0 || funnelData[0].count === 0 ? <EmptyState message="No funnel data yet" /> : (
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={funnelData} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis type="number" tick={{ fontSize: 12 }} stroke="#94a3b8" />
+              <YAxis type="category" dataKey="label" tick={{ fontSize: 12 }} stroke="#94a3b8" width={160} />
+              <Tooltip
+                formatter={(v: number | undefined) => `${(v ?? 0).toLocaleString()}`}
+                labelFormatter={(label) => {
+                  const stage = funnelData.find((s) => s.label === String(label));
+                  return stage ? `${label} (${stage.drop_off_percent}% drop-off)` : String(label);
+                }}
+              />
+              <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                {funnelData.map((_, i) => (
+                  <Cell
+                    key={i}
+                    fill={i === funnelData.length - 1 ? '#10b981' : '#3b82f6'}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
 
       {/* ------- Chart 1: Call Volume Over Time (Area Chart) ------- */}
       <div className="bg-slate-50 rounded-lg p-4">

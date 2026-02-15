@@ -29,8 +29,12 @@ export interface SummaryData {
   avg_negotiation_rounds: number;
   /** Average profit margin as a percentage (0-100). */
   avg_margin_percent: number;
-  /** Percentage of calls where the AI followed protocol correctly (0-100). */
-  ai_protocol_compliance: number;
+  /** Total revenue from booked (accepted) loads. */
+  total_booked_revenue: number;
+  /** Total margin earned across all accepted loads (loadboard_rate - final_agreed_rate). */
+  total_margin_earned: number;
+  /** Average rate per mile across accepted loads with mileage data. */
+  avg_rate_per_mile: number;
   /** Count of distinct carriers contacted. */
   total_carriers: number;
 }
@@ -58,6 +62,13 @@ export interface ReasonCount {
   count: number;
 }
 
+/** A single stage in the conversion funnel with cumulative count and drop-off. */
+export interface FunnelStage {
+  stage: string;
+  count: number;
+  drop_off_percent: number;
+}
+
 /** Aggregated operational metrics for the Operations tab. */
 export interface OperationsData {
   /** Daily call counts for the area chart. */
@@ -70,6 +81,8 @@ export interface OperationsData {
   rejection_reasons: ReasonCount[];
   /** Percentage of calls transferred to a human agent. */
   transfer_rate: number;
+  /** Conversion funnel from call_started through transferred_to_sales. */
+  funnel: FunnelStage[];
 }
 
 // ---------------------------------------------------------------------------
@@ -111,41 +124,6 @@ export interface NegotiationsData {
 }
 
 // ---------------------------------------------------------------------------
-// 4. AI Quality -- /api/analytics/ai-quality
-//    Charts: violations bar, interruptions line, tone pie; plus stat cards.
-// ---------------------------------------------------------------------------
-
-/** A labelled count for a specific protocol violation type. */
-export interface ViolationCount {
-  violation: string;
-  count: number;
-}
-
-/** A single date-bucketed average interruption count. */
-export interface InterruptionPoint {
-  date: string;
-  avg: number; // average interruptions per call on this date
-}
-
-/** Aggregated AI quality metrics for the AI Quality tab. */
-export interface AIQualityData {
-  /** Overall percentage of calls where the AI followed protocol (0-100). */
-  protocol_compliance_rate: number;
-  /** Most frequent protocol violations, sorted by count descending. */
-  common_violations: ViolationCount[];
-  /** Average number of times the AI was interrupted per call. */
-  avg_interruptions: number;
-  /** Daily trend of average interruptions per call. */
-  interruptions_over_time: InterruptionPoint[];
-  /** Percentage of calls with transcription errors (0-100). */
-  transcription_error_rate: number;
-  /** Percentage of carriers who called back / were called again (0-100). */
-  carrier_repeat_rate: number;
-  /** Tone label -> count mapping for the pie chart (e.g. "professional": 80). */
-  tone_quality_distribution: Record<string, number>;
-}
-
-// ---------------------------------------------------------------------------
 // 5. Carriers -- /api/analytics/carriers
 //    Charts: sentiment area, engagement pie, objections/questions bars, leaderboard table.
 // ---------------------------------------------------------------------------
@@ -178,6 +156,18 @@ export interface SentimentTimePoint {
   negative: number;
 }
 
+/** A lane with its occurrence count (used for requested and actual lane rankings). */
+export interface LaneCount {
+  lane: string;
+  count: number;
+}
+
+/** An equipment type with its occurrence count. */
+export interface EquipmentCount {
+  equipment_type: string;
+  count: number;
+}
+
 /** Aggregated carrier-focused metrics for the Carriers tab. */
 export interface CarriersData {
   /** Sentiment label -> count mapping for overall distribution. */
@@ -194,4 +184,10 @@ export interface CarriersData {
   top_questions: QuestionCount[];
   /** Top carriers ranked by acceptance rate (used in the leaderboard table). */
   carrier_leaderboard: CarrierLeaderboardRow[];
+  /** Top lanes requested by carriers. */
+  top_requested_lanes: LaneCount[];
+  /** Top actual lanes (origin → destination). */
+  top_actual_lanes: LaneCount[];
+  /** Equipment type distribution across calls. */
+  equipment_distribution: EquipmentCount[];
 }

@@ -59,6 +59,7 @@ async def negotiations(
     return await get_negotiations(date_from, date_to)
 
 
+# DEPRECATED — AI quality metrics are no longer shown in the dashboard.
 @router.get("/ai-quality", response_model=AIQualityResponse)
 async def ai_quality(
     date_from: Optional[str] = Query(None, alias="from"),
