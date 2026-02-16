@@ -291,14 +291,14 @@ async def get_operations(
     )
 
     # --- Pipeline 2: rejection_reasons ---
-    p3: list[dict] = []
+    p2: list[dict] = []
     rejection_match: dict = {
         "transcript_extraction.outcome.rejection_reason": {"$ne": None}
     }
     if date_match:
         rejection_match.update(date_match)
-    p3.append({"$match": rejection_match})
-    p3.append(
+    p2.append({"$match": rejection_match})
+    p2.append(
         {
             "$group": {
                 "_id": "$transcript_extraction.outcome.rejection_reason",
@@ -306,18 +306,18 @@ async def get_operations(
             }
         }
     )
-    p3.append({"$sort": {"count": -1}})
-    p3.append({"$limit": 10})
+    p2.append({"$sort": {"count": -1}})
+    p2.append({"$limit": 10})
 
     # --- Pipeline 3: conversion funnel ---
-    p5: list[dict] = []
+    p3: list[dict] = []
     funnel_match: dict = {
         "transcript_extraction.outcome.funnel_stage_reached": {"$ne": None}
     }
     if date_match:
         funnel_match.update(date_match)
-    p5.append({"$match": funnel_match})
-    p5.append(
+    p3.append({"$match": funnel_match})
+    p3.append(
         {
             "$group": {
                 "_id": "$transcript_extraction.outcome.funnel_stage_reached",
@@ -327,14 +327,14 @@ async def get_operations(
     )
 
     r1 = await db.call_records.aggregate(p1).to_list(length=None)
+    r2 = await db.call_records.aggregate(p2).to_list(length=None)
     r3 = await db.call_records.aggregate(p3).to_list(length=None)
-    r5 = await db.call_records.aggregate(p5).to_list(length=None)
 
     calls_over_time = [
         TimeSeriesPoint(date=row["_id"], count=row["count"]) for row in r1
     ]
     rejection_reasons = [
-        ReasonCount(reason=row["_id"], count=row["count"]) for row in r3
+        ReasonCount(reason=row["_id"], count=row["count"]) for row in r2
     ]
 
     # Build funnel with cumulative counts (each stage includes all records
@@ -349,7 +349,7 @@ async def get_operations(
         "deal_agreed",
         "transferred_to_sales",
     ]
-    stage_counts_raw = {row["_id"]: row["count"] for row in r5}
+    stage_counts_raw = {row["_id"]: row["count"] for row in r3}
 
     # Cumulative: a record that reached stage N also passed through stages 0..N-1.
     # Accumulate from bottom up.
@@ -782,11 +782,11 @@ async def get_carriers(
     date_match = _build_date_match(date_from, date_to)
 
     # --- Pipeline 1: top objections ---
-    p5: list[dict] = []
+    p1: list[dict] = []
     if date_match:
-        p5.append({"$match": date_match})
-    p5.append({"$unwind": "$transcript_extraction.optional.carrier_objections"})
-    p5.append(
+        p1.append({"$match": date_match})
+    p1.append({"$unwind": "$transcript_extraction.optional.carrier_objections"})
+    p1.append(
         {
             "$group": {
                 "_id": "$transcript_extraction.optional.carrier_objections",
@@ -794,14 +794,14 @@ async def get_carriers(
             }
         }
     )
-    p5.append({"$sort": {"count": -1}})
-    p5.append({"$limit": 10})
+    p1.append({"$sort": {"count": -1}})
+    p1.append({"$limit": 10})
 
     # --- Pipeline 2: carrier leaderboard ---
-    p7: list[dict] = []
+    p2: list[dict] = []
     if date_match:
-        p7.append({"$match": date_match})
-    p7.append(
+        p2.append({"$match": date_match})
+    p2.append(
         {
             "$group": {
                 "_id": "$fmcsa_data.carrier_mc_number",
@@ -824,31 +824,31 @@ async def get_carriers(
             }
         }
     )
-    p7.append({"$sort": {"calls": -1}})
-    p7.append({"$limit": 20})
+    p2.append({"$sort": {"calls": -1}})
+    p2.append({"$limit": 20})
 
-    # --- Pipeline 8: top requested lanes ---
-    p8: list[dict] = []
+    # --- Pipeline 3: top requested lanes ---
+    p3: list[dict] = []
     req_lane_match: dict = {"load_data.carrier_requested_lane": {"$ne": None}}
     if date_match:
         req_lane_match.update(date_match)
-    p8.append({"$match": req_lane_match})
-    p8.append(
+    p3.append({"$match": req_lane_match})
+    p3.append(
         {"$group": {"_id": "$load_data.carrier_requested_lane", "count": {"$sum": 1}}}
     )
-    p8.append({"$sort": {"count": -1}})
-    p8.append({"$limit": 10})
+    p3.append({"$sort": {"count": -1}})
+    p3.append({"$limit": 10})
 
-    # --- Pipeline 9: top actual lanes ---
-    p9: list[dict] = []
+    # --- Pipeline 4: top actual lanes ---
+    p4: list[dict] = []
     actual_lane_match: dict = {
         "load_data.origin": {"$ne": None},
         "load_data.destination": {"$ne": None},
     }
     if date_match:
         actual_lane_match.update(date_match)
-    p9.append({"$match": actual_lane_match})
-    p9.append(
+    p4.append({"$match": actual_lane_match})
+    p4.append(
         {
             "$group": {
                 "_id": {
@@ -862,29 +862,29 @@ async def get_carriers(
             }
         }
     )
-    p9.append({"$sort": {"count": -1}})
-    p9.append({"$limit": 10})
+    p4.append({"$sort": {"count": -1}})
+    p4.append({"$limit": 10})
 
-    # --- Pipeline 10: equipment distribution ---
-    p10: list[dict] = []
+    # --- Pipeline 5: equipment distribution ---
+    p5: list[dict] = []
     equip_match: dict = {"load_data.equipment_type": {"$ne": None}}
     if date_match:
         equip_match.update(date_match)
-    p10.append({"$match": equip_match})
-    p10.append(
+    p5.append({"$match": equip_match})
+    p5.append(
         {"$group": {"_id": "$load_data.equipment_type", "count": {"$sum": 1}}}
     )
-    p10.append({"$sort": {"count": -1}})
+    p5.append({"$sort": {"count": -1}})
 
+    r1 = await db.call_records.aggregate(p1).to_list(length=None)
+    r2 = await db.call_records.aggregate(p2).to_list(length=None)
+    r3 = await db.call_records.aggregate(p3).to_list(length=None)
+    r4 = await db.call_records.aggregate(p4).to_list(length=None)
     r5 = await db.call_records.aggregate(p5).to_list(length=None)
-    r7 = await db.call_records.aggregate(p7).to_list(length=None)
-    r8 = await db.call_records.aggregate(p8).to_list(length=None)
-    r9 = await db.call_records.aggregate(p9).to_list(length=None)
-    r10 = await db.call_records.aggregate(p10).to_list(length=None)
 
     # Top objections
     top_objections = [
-        ObjectionCount(objection=row["_id"], count=row["count"]) for row in r5
+        ObjectionCount(objection=row["_id"], count=row["count"]) for row in r1
     ]
 
     # Carrier leaderboard
@@ -897,18 +897,18 @@ async def get_carriers(
                 round(row["accepted"] / row["calls"] * 100, 1) if row["calls"] else 0.0
             ),
         )
-        for row in r7
+        for row in r2
     ]
 
     # Lane intelligence
     top_requested_lanes = [
-        LaneCount(lane=row["_id"], count=row["count"]) for row in r8
+        LaneCount(lane=row["_id"], count=row["count"]) for row in r3
     ]
     top_actual_lanes = [
-        LaneCount(lane=row["_id"], count=row["count"]) for row in r9
+        LaneCount(lane=row["_id"], count=row["count"]) for row in r4
     ]
     equipment_distribution = [
-        EquipmentCount(equipment_type=row["_id"], count=row["count"]) for row in r10
+        EquipmentCount(equipment_type=row["_id"], count=row["count"]) for row in r5
     ]
 
     return CarriersResponse(

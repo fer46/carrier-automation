@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, Query
 from starlette.status import HTTP_201_CREATED
 
 from app.analytics.models import (
-    AIQualityResponse,
     CallRecord,
     CarriersResponse,
     GeographyResponse,
@@ -14,7 +13,6 @@ from app.analytics.models import (
     SummaryResponse,
 )
 from app.analytics.service import (
-    get_ai_quality,
     get_carriers,
     get_geography,
     get_negotiations,
@@ -59,15 +57,6 @@ async def negotiations(
     date_to: Optional[str] = Query(None, alias="to"),
 ):
     return await get_negotiations(date_from, date_to)
-
-
-# DEPRECATED — AI quality metrics are no longer shown in the dashboard.
-@router.get("/ai-quality", response_model=AIQualityResponse)
-async def ai_quality(
-    date_from: Optional[str] = Query(None, alias="from"),
-    date_to: Optional[str] = Query(None, alias="to"),
-):
-    return await get_ai_quality(date_from, date_to)
 
 
 @router.get("/carriers", response_model=CarriersResponse)

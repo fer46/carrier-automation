@@ -357,59 +357,6 @@ async def test_negotiations_returns_200(negotiations_analytics_client):
     assert data["strategy_effectiveness"][0]["acceptance_rate"] == 80.0
 
 
-# --- AI Quality Tests ---
-
-
-@pytest.fixture
-async def ai_quality_client():
-    call_count = 0
-    def side_effect_aggregate(pipeline):
-        nonlocal call_count
-        call_count += 1
-        mock_cursor = AsyncMock()
-        if call_count == 1:
-            mock_cursor.to_list = AsyncMock(return_value=[{
-                "total": 10,
-                "compliant": 9,
-                "avg_interruptions": 1.2,
-                "transcription_errors": 1,
-                "carrier_repeats": 2,
-            }])
-        elif call_count == 2:
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": "skipped_greeting", "count": 3},
-            ])
-        elif call_count == 3:
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": "2024-06-15", "avg": 1.5},
-            ])
-        elif call_count == 4:
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": "professional", "count": 8},
-                {"_id": "neutral", "count": 2},
-            ])
-        return mock_cursor
-
-    mock_db = _make_mock_db()
-    mock_db.call_records.aggregate = MagicMock(side_effect=side_effect_aggregate)
-    with patch("app.analytics.service.get_database", return_value=mock_db):
-        transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://test") as ac:
-            ac.headers["X-API-Key"] = API_KEY
-            yield ac
-
-
-async def test_ai_quality_returns_200(ai_quality_client):
-    response = await ai_quality_client.get("/api/analytics/ai-quality")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["protocol_compliance_rate"] == 90.0
-    assert len(data["common_violations"]) == 1
-    assert data["avg_interruptions"] == 1.2
-    assert data["transcription_error_rate"] == 10.0
-    assert data["carrier_repeat_rate"] == 20.0
-
-
 # --- Carriers Tests ---
 
 
