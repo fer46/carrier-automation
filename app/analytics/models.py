@@ -10,13 +10,27 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class _WebhookModel(BaseModel):
-    """Base for webhook sub-models: coerces empty strings to None."""
+    """Base for webhook sub-models: coerces empty strings to None and wraps
+    bare strings into single-element lists when the field expects a list."""
 
     @model_validator(mode="before")
     @classmethod
-    def _empty_strings_to_none(cls, data):
+    def _coerce_webhook_values(cls, data):
         if isinstance(data, dict):
-            return {k: (None if v == "" else v) for k, v in data.items()}
+            list_fields = {
+                name
+                for name, field in cls.model_fields.items()
+                if field.annotation is not None
+                and getattr(field.annotation, "__origin__", None) is list
+            }
+            return {
+                k: (
+                    None if v == ""
+                    else [v] if isinstance(v, str) and k in list_fields
+                    else v
+                )
+                for k, v in data.items()
+            }
         return data
 
 class SystemData(_WebhookModel):
@@ -33,7 +47,7 @@ class FMCSAData(_WebhookModel):
 
 class LoadData(_WebhookModel):
     load_id_discussed: str
-    alternate_loads_presented: int
+    alternate_loads_presented: Optional[int] = None
     loadboard_rate: Optional[float] = None
     origin: Optional[str] = None
     destination: Optional[str] = None
@@ -228,3 +242,26 @@ class CarriersResponse(BaseModel):
     top_requested_lanes: list[LaneCount]
     top_actual_lanes: list[LaneCount]
     equipment_distribution: list[EquipmentCount]
+
+
+class GeoCity(BaseModel):
+    name: str       # "Dallas, TX"
+    lat: float
+    lng: float
+    volume: int     # total inbound+outbound count
+
+
+class GeoArc(BaseModel):
+    origin: str
+    origin_lat: float
+    origin_lng: float
+    destination: str
+    dest_lat: float
+    dest_lng: float
+    count: int
+    arc_type: str   # "requested" | "booked"
+
+
+class GeographyResponse(BaseModel):
+    arcs: list[GeoArc]
+    cities: list[GeoCity]
