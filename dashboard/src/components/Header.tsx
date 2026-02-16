@@ -23,26 +23,29 @@ const RANGES: { value: TimeRange; label: string }[] = [
 
 export default function Header({ activeRange, onRangeChange, onRefresh }: HeaderProps) {
   return (
-    <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+    <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
       {/* Left side: app branding */}
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-          <span className="text-white font-bold text-sm">CL</span>
+        <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+          <span className="text-white font-bold text-sm">BR</span>
         </div>
-        <h1 className="text-xl font-bold text-slate-800">Carrier Load Analytics</h1>
+        <div>
+          <h1 className="text-lg font-bold text-black leading-tight">BrokerRobots</h1>
+          <p className="text-[11px] text-gray-400 leading-tight">Carrier Load Analytics</p>
+        </div>
       </div>
 
       {/* Right side: time range toggle + refresh button */}
       <div className="flex items-center gap-4">
-        <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+        <div className="flex rounded-lg border border-gray-300 overflow-hidden">
           {RANGES.map(({ value, label }) => (
             <button
               key={value}
               onClick={() => onRangeChange(value)}
               className={`px-4 py-1.5 text-sm font-medium transition-colors ${
                 activeRange === value
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-slate-600 hover:bg-slate-50'
+                  ? 'bg-black text-white'
+                  : 'bg-white text-gray-500 hover:bg-gray-50'
               }`}
             >
               {label}
@@ -52,7 +55,7 @@ export default function Header({ activeRange, onRangeChange, onRefresh }: Header
 
         <button
           onClick={onRefresh}
-          className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+          className="bg-black text-white px-3 py-1.5 rounded-md text-sm font-medium hover:bg-gray-800 transition-colors"
         >
           Refresh
         </button>

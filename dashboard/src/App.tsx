@@ -28,10 +28,11 @@ import OperationsTab from './components/OperationsTab';
 import NegotiationsTab from './components/NegotiationsTab';
 
 import CarriersTab from './components/CarriersTab';
+import GeographyTab from './components/GeographyTab';
 import { api } from './api';
-import type { SummaryData, OperationsData, NegotiationsData, CarriersData } from './types';
+import type { SummaryData, OperationsData, NegotiationsData, CarriersData, GeographyData } from './types';
 
-const TABS = ['Operations', 'Negotiations', 'Carriers'] as const;
+const TABS = ['Operations', 'Negotiations', 'Carriers', 'Geography'] as const;
 type Tab = typeof TABS[number];
 
 const POLL_INTERVAL = 300;
@@ -56,6 +57,7 @@ export default function App() {
   const [negotiations, setNegotiations] = useState<NegotiationsData | null>(null);
 
   const [carriers, setCarriers] = useState<CarriersData | null>(null);
+  const [geography, setGeography] = useState<GeographyData | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Derive ISO date strings from the selected time range.
@@ -66,17 +68,19 @@ export default function App() {
     try {
       setLoading(true);
 
-      const [s, o, n, c] = await Promise.all([
+      const [s, o, n, c, g] = await Promise.all([
         api.getSummary(dateFrom, dateTo),
         api.getOperations(dateFrom, dateTo),
         api.getNegotiations(dateFrom, dateTo),
         api.getCarriers(dateFrom, dateTo),
+        api.getGeography(dateFrom, dateTo),
       ]);
 
       setSummary(s);
       setOperations(o);
       setNegotiations(n);
       setCarriers(c);
+      setGeography(g);
     } catch (err) {
       console.error('Failed to fetch analytics:', err);
     } finally {
@@ -102,7 +106,7 @@ export default function App() {
   const isEmpty = summary && summary.total_calls === 0;
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="min-h-screen bg-gray-50">
 
       {/* ------- Sticky header with branding, date picker, and refresh ------- */}
       <Header
@@ -116,32 +120,32 @@ export default function App() {
         {/* ------- KPI Hero Row (or empty-state banner) ------- */}
         {isEmpty ? (
           // Onboarding banner: shown when the database has zero call records.
-          <div className="bg-white rounded-xl border border-slate-200 p-12 text-center mb-6">
-            <p className="text-slate-400 text-lg mb-2">No call data yet</p>
-            <p className="text-slate-500 text-sm">
-              POST call records to <code className="bg-slate-100 px-2 py-0.5 rounded text-blue-600">/api/analytics/calls</code> to see metrics here.
+          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center mb-6">
+            <p className="text-gray-400 text-lg mb-2">No call data yet</p>
+            <p className="text-gray-500 text-sm">
+              POST call records to <code className="bg-gray-100 px-2 py-0.5 rounded text-black">/api/analytics/calls</code> to see metrics here.
             </p>
           </div>
         ) : summary ? (
           // KPI hero cards: 7 key metrics displayed in a responsive grid.
           // Responsive breakpoints: 2 cols (mobile) -> 3 cols (tablet) -> 4 cols (desktop).
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
-            <KPICard label="Total Calls" value={summary.total_calls} color="blue" />
-            <KPICard label="Avg Call Duration" value={summary.avg_call_duration} format="duration" color="slate" />
+            <KPICard label="Total Calls" value={summary.total_calls} />
+            <KPICard label="Avg Call Duration" value={summary.avg_call_duration} format="duration" />
             <KPICard label="Acceptance Rate" value={summary.acceptance_rate} format="percent" color="green" />
             <KPICard label="Booked Revenue" value={summary.total_booked_revenue} format="dollar" color="green" />
             <KPICard label="Margin Earned" value={summary.total_margin_earned} format="dollar" color="green" />
             <KPICard label="Avg Margin %" value={summary.avg_margin_percent} format="percent" color="green" />
-            <KPICard label="Rate/Mile" value={summary.avg_rate_per_mile} format="dollar" color="slate" />
-            <KPICard label="Unique Carriers" value={summary.total_carriers} color="blue" />
+            <KPICard label="Rate/Mile" value={summary.avg_rate_per_mile} format="dollar" />
+            <KPICard label="Unique Carriers" value={summary.total_carriers} />
           </div>
         ) : null /* null = still loading the first fetch; Header shows no cards yet */}
 
         {/* ------- Tabbed Content Area ------- */}
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
 
           {/* Tab navigation bar */}
-          <div className="border-b border-slate-200">
+          <div className="border-b border-gray-200">
             <nav className="flex">
               {TABS.map((tab) => (
                 <button
@@ -149,8 +153,8 @@ export default function App() {
                   onClick={() => setActiveTab(tab)}
                   className={`px-6 py-3 text-sm font-medium transition-colors ${
                     activeTab === tab
-                      ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
-                      : 'text-slate-500 hover:text-slate-700'
+                      ? 'text-black border-b-2 border-black'
+                      : 'text-gray-400 hover:text-gray-600'
                   }`}
                 >
                   {tab}
@@ -164,12 +168,13 @@ export default function App() {
               is populated), then switches to the tab components. */}
           <div className="p-6">
             {loading && !summary ? (
-              <p className="text-slate-400 text-center py-12">Loading...</p>
+              <p className="text-gray-400 text-center py-12">Loading...</p>
             ) : (
               <>
                 {activeTab === 'Operations' && <OperationsTab data={operations} />}
                 {activeTab === 'Negotiations' && <NegotiationsTab data={negotiations} />}
                 {activeTab === 'Carriers' && <CarriersTab data={carriers} />}
+                {activeTab === 'Geography' && <GeographyTab data={geography} />}
               </>
             )}
           </div>

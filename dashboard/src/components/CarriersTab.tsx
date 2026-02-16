@@ -21,7 +21,7 @@ import type { CarriersData } from '../types';
 import EmptyState from './EmptyState';
 
 // Equipment donut chart colours.
-const EQUIP_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'];
+const EQUIP_COLORS = ['#3b82f6', '#f97316', '#22c55e', '#f43f5e', '#a855f7'];
 
 interface Props {
   data: CarriersData | null; // null while the initial fetch is still loading
@@ -37,14 +37,14 @@ export default function CarriersTab({ data }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* Top Requested Lanes */}
-        <div className="bg-slate-50 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">Top Requested Lanes</h3>
+        <div className="bg-gray-50 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Top Requested Lanes</h3>
           {data.top_requested_lanes.length === 0 ? <EmptyState message="No lane data yet" /> : (
             <div className="space-y-2">
               {data.top_requested_lanes.map((lane, i) => (
                 <div key={i} className="flex items-center justify-between text-sm">
-                  <span className="text-slate-700 truncate mr-2">{lane.lane}</span>
-                  <span className="text-slate-500 font-medium shrink-0">{lane.count}</span>
+                  <span className="text-gray-700 truncate mr-2">{lane.lane}</span>
+                  <span className="text-gray-400 font-medium shrink-0">{lane.count}</span>
                 </div>
               ))}
             </div>
@@ -52,14 +52,14 @@ export default function CarriersTab({ data }: Props) {
         </div>
 
         {/* Top Actual Lanes */}
-        <div className="bg-slate-50 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">Top Actual Lanes</h3>
+        <div className="bg-gray-50 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Top Actual Lanes</h3>
           {data.top_actual_lanes.length === 0 ? <EmptyState message="No lane data yet" /> : (
             <div className="space-y-2">
               {data.top_actual_lanes.map((lane, i) => (
                 <div key={i} className="flex items-center justify-between text-sm">
-                  <span className="text-slate-700 truncate mr-2">{lane.lane}</span>
-                  <span className="text-slate-500 font-medium shrink-0">{lane.count}</span>
+                  <span className="text-gray-700 truncate mr-2">{lane.lane}</span>
+                  <span className="text-gray-400 font-medium shrink-0">{lane.count}</span>
                 </div>
               ))}
             </div>
@@ -67,8 +67,8 @@ export default function CarriersTab({ data }: Props) {
         </div>
 
         {/* Equipment Types */}
-        <div className="bg-slate-50 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">Equipment Types</h3>
+        <div className="bg-gray-50 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Equipment Types</h3>
           {data.equipment_distribution.length === 0 ? <EmptyState message="No equipment data yet" /> : (
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
@@ -94,29 +94,29 @@ export default function CarriersTab({ data }: Props) {
 
         {/* Top Carrier Objections: horizontal bar chart ranking the most frequent
             reasons carriers push back (e.g. "Rate too low", "Wrong lane"). */}
-        <div className="bg-slate-50 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">Top Carrier Objections</h3>
+        <div className="bg-gray-50 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Top Carrier Objections</h3>
           {data.top_objections.length === 0 ? <EmptyState message="No objections recorded" /> : (
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={data.top_objections} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis type="number" tick={{ fontSize: 12 }} stroke="#94a3b8" />
-                <YAxis type="category" dataKey="objection" tick={{ fontSize: 12 }} stroke="#94a3b8" width={150} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis type="number" tick={{ fontSize: 12 }} stroke="#9ca3af" />
+                <YAxis type="category" dataKey="objection" tick={{ fontSize: 12 }} stroke="#9ca3af" width={150} />
                 <Tooltip />
-                <Bar dataKey="count" fill="#f59e0b" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="count" fill="#f97316" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
         </div>
 
         {/* Carrier Leaderboard: table of top-performing carriers ranked by volume. */}
-        <div className="bg-slate-50 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">Carrier Leaderboard</h3>
+        <div className="bg-gray-50 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Carrier Leaderboard</h3>
           {data.carrier_leaderboard.length === 0 ? <EmptyState /> : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-slate-500 border-b border-slate-200">
+                  <tr className="text-left text-gray-400 border-b border-gray-200">
                     <th className="pb-2 font-medium">Carrier</th>
                     <th className="pb-2 font-medium">MC#</th>
                     <th className="pb-2 font-medium">Calls</th>
@@ -125,19 +125,19 @@ export default function CarriersTab({ data }: Props) {
                 </thead>
                 <tbody>
                   {data.carrier_leaderboard.map((row) => (
-                    <tr key={row.mc_number} className="border-b border-slate-100">
-                      <td className="py-2 font-medium text-slate-700">{row.carrier_name}</td>
-                      <td className="py-2 text-slate-500">{row.mc_number}</td>
-                      <td className="py-2 text-slate-600">{row.calls}</td>
+                    <tr key={row.mc_number} className="border-b border-gray-100">
+                      <td className="py-2 font-medium text-gray-700">{row.carrier_name}</td>
+                      <td className="py-2 text-gray-400">{row.mc_number}</td>
+                      <td className="py-2 text-gray-500">{row.calls}</td>
                       <td className="py-2">
                         <div className="flex items-center gap-2">
-                          <div className="w-24 bg-slate-200 rounded-full h-2">
+                          <div className="w-24 bg-gray-200 rounded-full h-2">
                             <div
-                              className="bg-emerald-500 h-2 rounded-full"
+                              className="bg-black h-2 rounded-full"
                               style={{ width: `${Math.min(row.acceptance_rate, 100)}%` }}
                             />
                           </div>
-                          <span className="text-slate-600">{row.acceptance_rate}%</span>
+                          <span className="text-gray-500">{row.acceptance_rate}%</span>
                         </div>
                       </td>
                     </tr>

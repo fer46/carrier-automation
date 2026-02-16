@@ -16,18 +16,12 @@ interface KPICardProps {
   label: string;
   value: string | number;
   format?: 'number' | 'percent' | 'duration' | 'dollar';
-  color?: 'green' | 'amber' | 'blue' | 'slate';
+  color?: 'default' | 'green';
 }
 
-/**
- * Maps each semantic color name to a set of Tailwind utility classes that
- * style the card's background, border, and text colour.
- */
 const colorMap = {
+  default: 'bg-white border-gray-200 text-black',
   green: 'bg-emerald-50 border-emerald-200 text-emerald-700',
-  amber: 'bg-amber-50 border-amber-200 text-amber-700',
-  blue: 'bg-blue-50 border-blue-200 text-blue-700',
-  slate: 'bg-slate-50 border-slate-200 text-slate-700',
 };
 
 /**
@@ -53,10 +47,9 @@ function formatValue(value: string | number, format?: string): string {
   return value.toFixed(1);
 }
 
-export default function KPICard({ label, value, format, color = 'slate' }: KPICardProps) {
+export default function KPICard({ label, value, format, color = 'default' }: KPICardProps) {
   return (
     <div className={`rounded-xl border p-5 ${colorMap[color]}`}>
-      {/* Label is rendered at reduced opacity so the bold value stands out. */}
       <p className="text-sm font-medium opacity-70 mb-1">{label}</p>
       <p className="text-3xl font-bold tracking-tight">{formatValue(value, format)}</p>
     </div>

@@ -9,7 +9,7 @@
 
 export default function EmptyState({ message }: { message?: string }) {
   return (
-    <div className="text-center py-12 text-slate-400">
+    <div className="text-center py-12 text-gray-400">
       <p>{message || 'No data available'}</p>
     </div>
   );

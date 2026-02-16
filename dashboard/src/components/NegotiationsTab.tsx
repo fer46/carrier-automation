@@ -29,13 +29,13 @@ import EmptyState from './EmptyState';
 
 // Colour palette for the margin distribution bar chart -- each bucket gets a
 // different colour to make them visually distinct.
-const COLORS = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'];
+const COLORS = ['#f43f5e', '#f97316', '#22c55e', '#3b82f6', '#a855f7'];
 
 // Semantic colours for the negotiation outcomes donut chart.
 const OUTCOME_COLORS: Record<string, string> = {
-  'Accepted at First Offer': '#10b981',  // emerald
+  'Accepted at First Offer': '#22c55e',  // green
   'Negotiated & Agreed': '#3b82f6',       // blue
-  'No Deal': '#ef4444',                   // red
+  'No Deal': '#f43f5e',                   // rose
 };
 
 interface Props {
@@ -52,17 +52,17 @@ export default function NegotiationsTab({ data }: Props) {
 
       {/* ------- Section 1: Key Negotiation Stats (3-column summary cards) ------- */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-slate-50 rounded-lg p-4 text-center">
-          <p className="text-sm text-slate-500">Avg Savings / Deal</p>
-          <p className="text-2xl font-bold text-emerald-600">${data.avg_savings.toLocaleString()}</p>
+        <div className="bg-emerald-50 rounded-lg p-4 text-center">
+          <p className="text-sm text-emerald-600/70">Avg Savings / Deal</p>
+          <p className="text-2xl font-bold text-emerald-700">${data.avg_savings.toLocaleString()}</p>
         </div>
-        <div className="bg-slate-50 rounded-lg p-4 text-center">
-          <p className="text-sm text-slate-500">Avg Savings %</p>
-          <p className="text-2xl font-bold text-emerald-600">{data.avg_savings_percent}%</p>
+        <div className="bg-emerald-50 rounded-lg p-4 text-center">
+          <p className="text-sm text-emerald-600/70">Avg Savings %</p>
+          <p className="text-2xl font-bold text-emerald-700">{data.avg_savings_percent}%</p>
         </div>
-        <div className="bg-slate-50 rounded-lg p-4 text-center">
-          <p className="text-sm text-slate-500">Avg Rounds</p>
-          <p className="text-2xl font-bold text-slate-800">{data.avg_rounds}</p>
+        <div className="bg-gray-50 rounded-lg p-4 text-center">
+          <p className="text-sm text-gray-400">Avg Rounds</p>
+          <p className="text-2xl font-bold text-black">{data.avg_rounds}</p>
         </div>
       </div>
 
@@ -71,8 +71,8 @@ export default function NegotiationsTab({ data }: Props) {
 
         {/* Negotiation Outcomes: donut chart showing what happens when the AI
             talks to carriers — accepted at first offer, negotiated, or no deal. */}
-        <div className="bg-slate-50 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">Negotiation Outcomes</h3>
+        <div className="bg-gray-50 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Negotiation Outcomes</h3>
           {total === 0 ? <EmptyState /> : (
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
@@ -91,16 +91,15 @@ export default function NegotiationsTab({ data }: Props) {
 
         {/* Margin Distribution: histogram showing how many deals fall into each
             profit margin bucket (e.g. "0-5%", "5-10%", etc.). */}
-        <div className="bg-slate-50 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">Margin Distribution</h3>
+        <div className="bg-gray-50 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Margin Distribution</h3>
           {data.margin_distribution.length === 0 ? <EmptyState /> : (
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={data.margin_distribution}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="range" tick={{ fontSize: 12 }} stroke="#94a3b8" />
-                <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="range" tick={{ fontSize: 12 }} stroke="#9ca3af" />
+                <YAxis tick={{ fontSize: 12 }} stroke="#9ca3af" />
                 <Tooltip />
-                {/* Each bar gets a unique colour from the palette via <Cell>. */}
                 <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                   {data.margin_distribution.map((_, i) => (
                     <Cell key={i} fill={COLORS[i % COLORS.length]} />
