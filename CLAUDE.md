@@ -1,33 +1,41 @@
 ## Project: Carrier Load Automation
 
-AI-powered carrier load booking system. FastAPI + MongoDB (Motor async) + Pydantic.
+AI-powered carrier load booking system with analytics dashboard. FastAPI + MongoDB (Motor async) + Pydantic + React/TypeScript.
 
 ### Architecture
 - **Domain-driven structure**: Each domain gets its own folder under `app/` with `router.py`, `service.py`, `models.py`
-- **Current domains**: `loads` (search & get by ID)
-- **Future domains**: negotiations, bookings, analytics, dashboard — added incrementally
+- **Current domains**: `loads` (search & get by ID), `analytics` (call record aggregation, KPIs, geography)
+- **Dashboard**: React 19 + TypeScript + Tailwind CSS 4 + Recharts + react-simple-maps, served at `/dashboard`
 - **Auth**: API key via `X-API-Key` header, validated in `app/dependencies.py`
 - **DB**: MongoDB via Motor async driver, lifecycle managed in `app/database.py`
 - **Config**: Pydantic Settings in `app/config.py`, reads from `.env`
 
 ### Key Paths
-- `app/main.py` — FastAPI app entry point (lifespan, routers, health check)
+- `app/main.py` — FastAPI app entry point (lifespan, routers, health check, SPA serving)
 - `app/loads/` — Loads domain (router, service, models)
-- `data/seed_loads.json` — Sample load data (4 loads)
-- `scripts/seed_db.py` — Seeds MongoDB from JSON
+- `app/analytics/` — Analytics domain (router, service, models, lane_parser)
+- `dashboard/src/` — React dashboard (App, api, types, components/)
+- `data/seed_loads.json` — Sample load data
+- `scripts/seed_db.py` — Seeds MongoDB with loads from JSON
+- `scripts/seed_call_records.py` — Generates realistic call records for analytics
 - `tests/` — Mirrors app structure, uses mocked MongoDB
+- `docs/` — Architecture docs and implementation plans
 
 ### Commands
 - **Install deps**: `uv pip install -r requirements.txt`
 - **Run locally**: `.venv/bin/uvicorn app.main:app --reload`
 - **Run tests**: `.venv/bin/python -m pytest tests/ -v`
 - **Docker**: `docker-compose up --build`
-- **Seed DB**: `.venv/bin/python scripts/seed_db.py`
+- **Seed loads**: `.venv/bin/python scripts/seed_db.py`
+- **Seed call records**: `.venv/bin/python -m scripts.seed_call_records`
+- **Dashboard dev**: `cd dashboard && npm run dev`
+- **Dashboard build**: `cd dashboard && npm install && npm run build`
 
 ### Tech Constraints
 - **Python 3.13** — use `Optional[X]` from `typing` for nullable types (project convention)
 - **Package manager**: Always use `uv` for installs, never raw `pip`
 - **Async everywhere**: All DB operations and endpoints are async
+- **Dashboard**: React 19, TypeScript 5.9, Tailwind CSS 4, Vite 7, Recharts 3
 
 ### Conventions
 - Routers mount under `/api/<domain>/` prefix
@@ -35,6 +43,8 @@ AI-powered carrier load booking system. FastAPI + MongoDB (Motor async) + Pydant
 - Models: `<Entity>` (DB doc), `<Entity>SearchParams` (query), `<Entity>Response` (API response)
 - Tests mock the DB via `unittest.mock.patch` on `get_database` in the service module
 - Exclude `_id` from MongoDB query results with `{"_id": 0}`
+- Dashboard components: one per tab (OperationsTab, NegotiationsTab, CarriersTab, GeographyTab)
+- API client in `dashboard/src/api.ts`, types in `dashboard/src/types.ts`
 
 ---
 
