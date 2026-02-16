@@ -62,7 +62,7 @@ export default function App() {
 
   // Derive ISO date strings from the selected time range.
   const dateFrom = useMemo(() => daysAgoISO(RANGE_DAYS[timeRange]), [timeRange]);
-  const dateTo = useMemo(() => daysAgoISO(0), [timeRange]);
+  const dateTo = useMemo(() => daysAgoISO(0), []);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
