@@ -443,9 +443,7 @@ async def test_negotiations_missing_outcome_categories():
         mock_cursor = AsyncMock()
         if call_count == 2:
             # Only "No Deal" comes from DB; the other two are missing
-            mock_cursor.to_list = AsyncMock(
-                return_value=[{"_id": "No Deal", "count": 5}]
-            )
+            mock_cursor.to_list = AsyncMock(return_value=[{"_id": "No Deal", "count": 5}])
         else:
             mock_cursor.to_list = AsyncMock(return_value=[])
         return mock_cursor
@@ -498,9 +496,7 @@ async def test_negotiations_margin_bucket_labels():
             ac.headers["X-API-Key"] = API_KEY
             response = await ac.get("/api/analytics/negotiations")
             assert response.status_code == 200
-            buckets = {
-                b["range"]: b["count"] for b in response.json()["margin_distribution"]
-            }
+            buckets = {b["range"]: b["count"] for b in response.json()["margin_distribution"]}
             assert buckets == {
                 "<0%": 1,
                 "0-5%": 10,
