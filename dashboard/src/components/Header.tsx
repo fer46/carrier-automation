@@ -26,8 +26,8 @@ export default function Header({ activeRange, onRangeChange, onRefresh }: Header
     <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
       {/* Left side: app branding */}
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-          <span className="text-white font-bold text-sm">BRL</span>
+        <div className="w-8 h-8 bg-black flex items-center justify-center">
+          <span className="text-white font-bold text-sm italic">BRL</span>
         </div>
         <div>
           <h1 className="text-lg font-bold text-black leading-tight">Broker Robot Logistics</h1>
