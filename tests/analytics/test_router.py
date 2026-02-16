@@ -368,6 +368,149 @@ async def test_negotiations_returns_200(negotiations_analytics_client):
     assert data["strategy_effectiveness"][0]["acceptance_rate"] == 80.0
 
 
+async def test_negotiations_empty_dataset():
+    """All pipelines return empty results -> safe zero defaults, no crash."""
+    mock_db = _make_mock_db()
+    call_count = 0
+
+    def side_effect_aggregate(pipeline):
+        nonlocal call_count
+        call_count += 1
+        mock_cursor = AsyncMock()
+        mock_cursor.to_list = AsyncMock(return_value=[])
+        return mock_cursor
+
+    mock_db.call_records.aggregate = MagicMock(side_effect=side_effect_aggregate)
+    with patch("app.analytics.service.get_database", return_value=mock_db):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            ac.headers["X-API-Key"] = API_KEY
+            response = await ac.get("/api/analytics/negotiations")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["avg_savings"] == 0.0
+            assert data["avg_savings_percent"] == 0.0
+            assert data["avg_rounds"] == 0.0
+            # All 3 outcome categories must still appear with count 0
+            outcomes = data["negotiation_outcomes"]
+            assert len(outcomes) == 3
+            for o in outcomes:
+                assert o["count"] == 0
+            assert data["margin_distribution"] == []
+            assert data["strategy_effectiveness"] == []
+
+
+async def test_negotiations_null_savings_from_pipeline():
+    """Pipeline returns None values for savings fields -> defaults to 0, no crash."""
+    call_count = 0
+
+    def side_effect_aggregate(pipeline):
+        nonlocal call_count
+        call_count += 1
+        mock_cursor = AsyncMock()
+        if call_count == 1:
+            # Savings pipeline returns None for all computed fields
+            mock_cursor.to_list = AsyncMock(
+                return_value=[
+                    {"avg_savings": None, "avg_savings_percent": None, "avg_rounds": None}
+                ]
+            )
+        else:
+            mock_cursor.to_list = AsyncMock(return_value=[])
+        return mock_cursor
+
+    mock_db = _make_mock_db()
+    mock_db.call_records.aggregate = MagicMock(side_effect=side_effect_aggregate)
+    with patch("app.analytics.service.get_database", return_value=mock_db):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            ac.headers["X-API-Key"] = API_KEY
+            response = await ac.get("/api/analytics/negotiations")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["avg_savings"] == 0.0
+            assert data["avg_savings_percent"] == 0.0
+            assert data["avg_rounds"] == 0.0
+
+
+async def test_negotiations_missing_outcome_categories():
+    """Only some outcome categories returned -> all 3 present, missing ones get count=0."""
+    call_count = 0
+
+    def side_effect_aggregate(pipeline):
+        nonlocal call_count
+        call_count += 1
+        mock_cursor = AsyncMock()
+        if call_count == 2:
+            # Only "No Deal" comes from DB; the other two are missing
+            mock_cursor.to_list = AsyncMock(
+                return_value=[{"_id": "No Deal", "count": 5}]
+            )
+        else:
+            mock_cursor.to_list = AsyncMock(return_value=[])
+        return mock_cursor
+
+    mock_db = _make_mock_db()
+    mock_db.call_records.aggregate = MagicMock(side_effect=side_effect_aggregate)
+    with patch("app.analytics.service.get_database", return_value=mock_db):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            ac.headers["X-API-Key"] = API_KEY
+            response = await ac.get("/api/analytics/negotiations")
+            assert response.status_code == 200
+            outcomes = {o["name"]: o["count"] for o in response.json()["negotiation_outcomes"]}
+            assert outcomes == {
+                "Accepted at First Offer": 0,
+                "Negotiated & Agreed": 0,
+                "No Deal": 5,
+            }
+
+
+async def test_negotiations_margin_bucket_labels():
+    """All 6 margin bucket IDs map to correct human-readable labels."""
+    call_count = 0
+
+    def side_effect_aggregate(pipeline):
+        nonlocal call_count
+        call_count += 1
+        mock_cursor = AsyncMock()
+        if call_count == 3:
+            # All 6 standard bucket boundaries
+            mock_cursor.to_list = AsyncMock(
+                return_value=[
+                    {"_id": -100, "count": 1},
+                    {"_id": 0, "count": 10},
+                    {"_id": 5, "count": 8},
+                    {"_id": 10, "count": 6},
+                    {"_id": 15, "count": 3},
+                    {"_id": 20, "count": 2},
+                ]
+            )
+        else:
+            mock_cursor.to_list = AsyncMock(return_value=[])
+        return mock_cursor
+
+    mock_db = _make_mock_db()
+    mock_db.call_records.aggregate = MagicMock(side_effect=side_effect_aggregate)
+    with patch("app.analytics.service.get_database", return_value=mock_db):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            ac.headers["X-API-Key"] = API_KEY
+            response = await ac.get("/api/analytics/negotiations")
+            assert response.status_code == 200
+            buckets = {
+                b["range"]: b["count"] for b in response.json()["margin_distribution"]
+            }
+            assert buckets == {
+                "<0%": 1,
+                "0-5%": 10,
+                "5-10%": 8,
+                "10-15%": 6,
+                "15-20%": 3,
+                "20%+": 2,
+            }
+
+
 # --- Carriers Tests ---
 
 
