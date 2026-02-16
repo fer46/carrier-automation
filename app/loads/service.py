@@ -7,13 +7,11 @@ from app.loads.models import Load
 
 
 def _apply_pricing(load: Load) -> Load:
-    """Calculate target and cap carrier rates from the loadboard (shipper) rate.
+    """Calculate target carrier rate from the loadboard (shipper) rate.
 
     - target_carrier_rate: 12% broker margin → carrier gets 88% of loadboard rate
-    - cap_carrier_rate: 5% broker margin → carrier gets 95% of loadboard rate
     """
     load.target_carrier_rate = round(load.loadboard_rate * 0.88, 2)
-    load.cap_carrier_rate = round(load.loadboard_rate * 0.95, 2)
     return load
 
 
@@ -91,6 +89,7 @@ async def search_loads(
     max_rate: Optional[float] = None,
     max_weight: Optional[float] = None,
     pickup_date: Optional[str] = None,
+    delivery_date: Optional[str] = None,
 ) -> list[Load]:
     """Search for loads in MongoDB using optional filters.
 
@@ -106,6 +105,8 @@ async def search_loads(
     - max_weight: Filters out loads heavier than the carrier's truck can handle.
     - pickup_date: Only shows loads with pickup on or after this date.
       Carrier says "I'm available starting Thursday" → filters accordingly.
+    - delivery_date: Only shows loads with delivery on or before this date.
+      Carrier says "I need to deliver by Friday" → filters accordingly.
 
     Returns up to 100 loads as a safety cap to prevent huge responses.
     """
@@ -164,6 +165,12 @@ async def search_loads(
         # since it's guaranteed to be >= now (carrier is available in the future).
         query["pickup_datetime"] = {"$gte": pickup_date}
 
+    # --- Delivery date filter ---
+    # "I need to deliver by Friday" → only show loads with delivery on or before
+    # that date. Ensures the carrier can meet their scheduling constraints.
+    if delivery_date is not None:
+        query["delivery_datetime"] = {"$lte": delivery_date}
+
     # Execute the query:
     # - {"_id": 0} excludes MongoDB's internal _id field from results
     # - length=100 caps results to prevent returning thousands of documents
@@ -171,7 +178,7 @@ async def search_loads(
     results = await cursor.to_list(length=100)
 
     # Convert raw MongoDB dicts into validated Pydantic Load models
-    # and apply pricing calculations (target and cap carrier rates)
+    # and apply pricing calculations (target carrier rate)
     loads = [_apply_pricing(Load(**doc)) for doc in results]
 
     # --- Relevance ranking ---

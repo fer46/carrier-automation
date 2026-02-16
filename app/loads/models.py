@@ -26,7 +26,6 @@ class Load(BaseModel):
     miles: float  # Distance from origin to destination in miles
     dimensions: str  # Cargo dimensions as "LxWxH" in inches
     target_carrier_rate: Optional[float] = None  # Broker target offer (12% margin)
-    cap_carrier_rate: Optional[float] = None  # Max acceptable rate (5% margin)
 
 
 class LoadSearchParams(BaseModel):

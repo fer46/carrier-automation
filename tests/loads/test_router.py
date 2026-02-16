@@ -51,21 +51,17 @@ async def test_search_loads_includes_pricing(client):
     data = response.json()
     for load in data["loads"]:
         assert "target_carrier_rate" in load
-        assert "cap_carrier_rate" in load
         # Verify exact calculation: loadboard_rate=2800
         expected_target = round(load["loadboard_rate"] * 0.88, 2)
-        expected_cap = round(load["loadboard_rate"] * 0.95, 2)
         assert load["target_carrier_rate"] == expected_target
-        assert load["cap_carrier_rate"] == expected_cap
 
 
 async def test_get_load_by_id_includes_pricing(client):
     response = await client.get("/api/loads/LD-001")
     assert response.status_code == 200
     data = response.json()
-    # loadboard_rate=2800 → target=2464.0, cap=2660.0
+    # loadboard_rate=2800 → target=2464.0
     assert data["target_carrier_rate"] == 2464.0
-    assert data["cap_carrier_rate"] == 2660.0
 
 
 async def test_search_loads_requires_api_key():
