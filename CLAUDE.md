@@ -19,12 +19,16 @@ AI-powered carrier load booking system with analytics dashboard. FastAPI + Mongo
 - `scripts/seed_db.py` — Seeds MongoDB with loads from JSON
 - `scripts/seed_call_records.py` — Generates realistic call records for analytics
 - `tests/` — Mirrors app structure, uses mocked MongoDB
+- `.github/workflows/ci.yml` — CI pipeline (lint, test, dashboard build)
 - `docs/` — Architecture docs and implementation plans
 
 ### Commands
 - **Install deps**: `uv pip install -r requirements.txt`
 - **Run locally**: `.venv/bin/uvicorn app.main:app --reload`
 - **Run tests**: `.venv/bin/python -m pytest tests/ -v`
+- **Lint (ruff)**: `.venv/bin/ruff check app/ tests/ scripts/`
+- **Format check**: `.venv/bin/ruff format --check app/ tests/ scripts/`
+- **Type check**: `.venv/bin/mypy app/`
 - **Docker**: `docker-compose up --build`
 - **Seed loads**: `.venv/bin/python scripts/seed_db.py`
 - **Seed call records**: `.venv/bin/python -m scripts.seed_call_records`

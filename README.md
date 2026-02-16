@@ -170,6 +170,22 @@ This starts both the API (port 8000) and a MongoDB instance (port 27017) with pe
 
 Tests mock the database entirely — no MongoDB needed.
 
+### Linting & Type Checking
+
+```bash
+# Python linting and formatting
+.venv/bin/ruff check app/ tests/ scripts/
+.venv/bin/ruff format --check app/ tests/ scripts/
+
+# Type checking
+.venv/bin/mypy app/
+
+# Dashboard linting
+cd dashboard && npm run lint
+```
+
+All checks run automatically on push to `main` and on pull requests via GitHub Actions (`.github/workflows/ci.yml`).
+
 ## Tech Stack
 
 | Component    | Technology                         | Why                                         |
@@ -180,6 +196,8 @@ Tests mock the database entirely — no MongoDB needed.
 | Auth         | API key header                     | Simple, sufficient for service-to-service   |
 | Server       | Uvicorn                            | High-performance ASGI server                |
 | Tests        | pytest + httpx                     | Async test support with mocked DB           |
+| Linting      | ruff + mypy                        | Code quality and type safety                |
+| CI/CD        | GitHub Actions                     | Automated lint, test, and build on PRs      |
 | Container    | Docker + docker-compose            | Consistent environments                     |
 | Dashboard    | React 19 + TypeScript + Tailwind 4 | Modern UI with type safety                  |
 | Charts       | Recharts + react-simple-maps       | Data visualization and geographic arcs      |
