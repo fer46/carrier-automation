@@ -6,9 +6,11 @@ Real-time analytics dashboard for monitoring carrier call activity, negotiation 
 
 ## Overview
 
-The dashboard ingests carrier call records via webhook, stores them in MongoDB, and serves aggregated analytics through four API endpoints. The frontend polls these endpoints and renders KPI cards, charts, and tables across three tabs.
+The dashboard ingests carrier call records via webhook, stores them in MongoDB, and serves aggregated analytics through five API endpoints. The frontend polls these endpoints and renders KPI cards, charts, and tables across four tabs.
 
-**Stack:** FastAPI + MongoDB (Motor async) + React + Recharts + Tailwind CSS
+**Stack:** FastAPI + MongoDB (Motor async) + React + Recharts + react-simple-maps + Tailwind CSS
+
+**Branding:** Broker Robot Logistics (BRL) -- black & white theme with vivid chart accent colors.
 
 ---
 
@@ -24,7 +26,7 @@ Dashboard GET → /api/analytics/{endpoint} → Aggregation Pipelines → JSON R
 
 1. External systems POST call records to `/api/analytics/calls`
 2. Records are upserted by `call_id` with a server-side `ingested_at` timestamp
-3. The dashboard fetches four endpoints in parallel every 5 minutes
+3. The dashboard fetches five endpoints in parallel every 5 minutes
 4. MongoDB aggregation pipelines compute metrics on the fly
 5. The frontend renders the results as KPI cards, charts, and tables
 
@@ -45,6 +47,7 @@ All endpoints require an `X-API-Key` header. The key is configured via the `API_
 | GET | `/api/analytics/operations` | Call volume, funnel, rejection reasons |
 | GET | `/api/analytics/negotiations` | Negotiation savings, outcomes, margins |
 | GET | `/api/analytics/carriers` | Objections, lanes, equipment, leaderboard |
+| GET | `/api/analytics/geography` | Requested vs booked lane arcs, city volumes |
 
 All GET endpoints accept optional `from` and `to` query parameters (ISO date strings, e.g. `?from=2026-01-01&to=2026-01-31`). Dates filter on the `ingested_at` field (server timestamp when the record was first created).
 
@@ -54,8 +57,8 @@ All GET endpoints accept optional `from` and `to` query parameters (ISO date str
 
 ### Header
 
-- **Branding** on the left
-- **Time range selector**: 1d / 7d / 30d buttons that control the date filter
+- **Branding** on the left (BRL logo + "Broker Robot Logistics" title)
+- **Time range selector**: 1D / 7D / 30D buttons that control the date filter
 - **Refresh button**: triggers an immediate data fetch
 
 ### Hero KPI Row
@@ -77,7 +80,7 @@ When no data exists, an onboarding banner is shown instead.
 
 ### Tabs
 
-Three tabs below the hero row: **Operations**, **Negotiations**, **Carriers**.
+Four tabs below the hero row: **Operations**, **Negotiations**, **Carriers**, **Geography**.
 
 ---
 
@@ -157,15 +160,15 @@ Shows carrier behavior patterns and market intelligence.
 
 Three-column section showing:
 
-- **Top Requested Lanes**: lanes carriers asked about (`carrier_requested_lane` field), ranked by frequency
-- **Top Actual Lanes**: lanes that were actually discussed, formatted as "Origin → Destination", ranked by frequency
+- **Top Requested Lanes**: lanes carriers asked about (`carrier_requested_lane` field), ranked by frequency. Includes all calls regardless of outcome (both booked and unbooked).
+- **Top Actual Lanes**: lanes that were actually discussed, formatted as "Origin -> Destination", ranked by frequency.
 - **Equipment Types**: donut chart showing equipment type distribution (Dry Van, Reefer, Flatbed, etc.)
 
 Comparing requested vs. actual lanes reveals mismatches between carrier preferences and available loads.
 
 ### Top Carrier Objections
 
-Horizontal bar chart ranking the most common objections raised by carriers (e.g. "rate_too_low").
+Horizontal bar chart ranking the most common objections raised by carriers (e.g. "Rate too low").
 
 ### Carrier Leaderboard
 
@@ -173,6 +176,42 @@ Table of top 20 carriers ranked by call volume, showing:
 - Carrier name and MC number
 - Total calls
 - Acceptance rate with a visual progress bar
+
+---
+
+## Geography Tab
+
+Interactive US map visualizing the geographic distribution of requested vs booked freight lanes.
+
+### Arc Map
+
+Full-width map of the continental US (Albers USA projection via `react-simple-maps`) with two arc layers:
+
+- **Requested Lanes** (gray dashed arcs) -- lanes carriers asked about, parsed from the free-form `carrier_requested_lane` field.
+- **Booked Lanes** (green solid arcs) -- lanes where loads were actually discussed, built from `origin` + `destination` fields.
+
+Arc thickness scales with lane frequency. When the same lane appears in both requested and booked sets, the arcs curve at different heights to avoid overlap.
+
+**City markers** (blue circles) are sized proportionally to total load volume (sum of inbound + outbound across both requested and booked). The top 5 cities by volume display name labels. Hovering over a city shows a tooltip with its name and volume count.
+
+### Summary Cards
+
+Four-column row of metric cards:
+
+| Card | Description |
+|------|-------------|
+| Requested Lanes | Count of distinct requested lane pairs |
+| Booked Lanes | Count of distinct booked lane pairs |
+| Active Cities | Count of unique cities appearing in any lane |
+| Overlapping Lanes | Count of lanes that appear in both requested and booked sets |
+
+### Collapsible Panels
+
+Three collapsible disclosure panels in a row:
+
+- **Top Requested Lanes** -- ranked list (up to 8) with gray progress bars
+- **Top Booked Lanes** -- ranked list (up to 8) with green progress bars
+- **Top Hubs** -- ranked list (up to 8) of cities by total volume
 
 ---
 
@@ -260,9 +299,9 @@ Records are upserted by `call_id`: posting the same `call_id` twice updates the 
 
 ## Auto-Refresh
 
-The dashboard polls all four analytics endpoints every **5 minutes**. Changing the time range triggers an immediate fetch. A manual refresh button is available in the header.
+The dashboard polls all five analytics endpoints every **5 minutes**. Changing the time range triggers an immediate fetch. A manual refresh button is available in the header.
 
-All four endpoints are fetched in parallel via `Promise.all` to minimize load time.
+All five endpoints are fetched in parallel to minimize load time.
 
 ---
 
@@ -273,7 +312,7 @@ Every chart gracefully handles missing data with contextual messages rather than
 - No call data at all: onboarding banner with API instructions
 - No funnel data: "No funnel data yet"
 - No rejections: "No rejections recorded"
-- No lane data: "No lane data yet"
+- No lane data: "No lane data yet" / "No lane data available for the selected period"
 - No equipment data: "No equipment data yet"
 - No objections: "No objections recorded"
 - Generic: "No data available"
