@@ -187,13 +187,13 @@ export default function GeographyTab({ data }: Props) {
           <svg width="22" height="6" className="shrink-0">
             <path d="M0 3 Q11 0 22 3" stroke="#9ca3af" strokeWidth="1.5" fill="none" strokeDasharray="3 2" />
           </svg>
-          <span className="text-xs text-gray-400">Requested</span>
+          <span className="text-xs text-gray-400">Requested Lanes</span>
         </div>
         <div className="flex items-center gap-1.5">
           <svg width="22" height="6" className="shrink-0">
             <path d="M0 3 Q11 0 22 3" stroke="#22c55e" strokeWidth="1.5" fill="none" />
           </svg>
-          <span className="text-xs text-gray-400">Booked</span>
+          <span className="text-xs text-gray-400">Booked Lanes</span>
         </div>
         <div className="flex items-center gap-1.5 ml-auto">
           <span className="inline-block w-2 h-2 rounded-full bg-blue-500/70" />

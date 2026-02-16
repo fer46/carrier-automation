@@ -65,27 +65,15 @@ export default function App() {
   const dateTo = useMemo(() => daysAgoISO(0), [timeRange]);
 
   const fetchAll = useCallback(async () => {
-    try {
-      setLoading(true);
+    setLoading(true);
 
-      const [s, o, n, c, g] = await Promise.all([
-        api.getSummary(dateFrom, dateTo),
-        api.getOperations(dateFrom, dateTo),
-        api.getNegotiations(dateFrom, dateTo),
-        api.getCarriers(dateFrom, dateTo),
-        api.getGeography(dateFrom, dateTo),
-      ]);
-
-      setSummary(s);
-      setOperations(o);
-      setNegotiations(n);
-      setCarriers(c);
-      setGeography(g);
-    } catch (err) {
-      console.error('Failed to fetch analytics:', err);
-    } finally {
-      setLoading(false);
-    }
+    // Fire all requests independently so each section renders as soon as
+    // its data arrives, instead of waiting for the slowest endpoint.
+    api.getSummary(dateFrom, dateTo).then((s) => { setSummary(s); setLoading(false); }).catch(() => setLoading(false));
+    api.getOperations(dateFrom, dateTo).then(setOperations).catch(console.error);
+    api.getNegotiations(dateFrom, dateTo).then(setNegotiations).catch(console.error);
+    api.getCarriers(dateFrom, dateTo).then(setCarriers).catch(console.error);
+    api.getGeography(dateFrom, dateTo).then(setGeography).catch(console.error);
   }, [dateFrom, dateTo]);
 
   useEffect(() => {

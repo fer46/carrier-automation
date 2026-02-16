@@ -70,21 +70,30 @@ export default function CarriersTab({ data }: Props) {
         <div className="bg-gray-50 rounded-lg p-4">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">Equipment Types</h3>
           {data.equipment_distribution.length === 0 ? <EmptyState message="No equipment data yet" /> : (
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={data.equipment_distribution.map((e) => ({ name: e.equipment_type, value: e.count }))}
-                  cx="50%" cy="50%" innerRadius={40} outerRadius={70}
-                  dataKey="value" nameKey="name"
-                  label={({ name, value }) => `${name} (${value})`}
-                >
-                  {data.equipment_distribution.map((_, i) => (
-                    <Cell key={i} fill={EQUIP_COLORS[i % EQUIP_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            <>
+              <ResponsiveContainer width="100%" height={150}>
+                <PieChart>
+                  <Pie
+                    data={data.equipment_distribution.map((e) => ({ name: e.equipment_type, value: e.count }))}
+                    cx="50%" cy="50%" innerRadius={35} outerRadius={60}
+                    dataKey="value" nameKey="name"
+                  >
+                    {data.equipment_distribution.map((_, i) => (
+                      <Cell key={i} fill={EQUIP_COLORS[i % EQUIP_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 justify-center">
+                {data.equipment_distribution.map((e, i) => (
+                  <div key={i} className="flex items-center gap-1.5 text-xs text-gray-600">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: EQUIP_COLORS[i % EQUIP_COLORS.length] }} />
+                    {e.equipment_type} ({e.count})
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </div>

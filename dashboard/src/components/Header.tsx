@@ -27,10 +27,10 @@ export default function Header({ activeRange, onRangeChange, onRefresh }: Header
       {/* Left side: app branding */}
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-          <span className="text-white font-bold text-sm">BR</span>
+          <span className="text-white font-bold text-sm">BRL</span>
         </div>
         <div>
-          <h1 className="text-lg font-bold text-black leading-tight">BrokerRobots</h1>
+          <h1 className="text-lg font-bold text-black leading-tight">Broker Robot Logistics</h1>
           <p className="text-[11px] text-gray-400 leading-tight">Carrier Load Analytics</p>
         </div>
       </div>

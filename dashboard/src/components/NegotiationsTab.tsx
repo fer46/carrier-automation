@@ -74,18 +74,27 @@ export default function NegotiationsTab({ data }: Props) {
         <div className="bg-gray-50 rounded-lg p-4">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">Negotiation Outcomes</h3>
           {total === 0 ? <EmptyState /> : (
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie data={data.negotiation_outcomes} cx="50%" cy="50%" innerRadius={60} outerRadius={90}
-                     dataKey="count" nameKey="name"
-                     label={({ name, count }: { name: string; count: number }) => `${name} ${total > 0 ? ((count/total)*100).toFixed(0) : 0}%`}>
-                  {data.negotiation_outcomes.map((entry, i) => (
-                    <Cell key={i} fill={OUTCOME_COLORS[entry.name] || COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            <>
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={data.negotiation_outcomes} cx="50%" cy="50%" innerRadius={55} outerRadius={85}
+                       dataKey="count" nameKey="name">
+                    {data.negotiation_outcomes.map((entry, i) => (
+                      <Cell key={i} fill={OUTCOME_COLORS[entry.name] || COLORS[i % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 justify-center">
+                {data.negotiation_outcomes.map((entry, i) => (
+                  <div key={i} className="flex items-center gap-1.5 text-xs text-gray-600">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: OUTCOME_COLORS[entry.name] || COLORS[i % COLORS.length] }} />
+                    {entry.name} ({total > 0 ? ((entry.count/total)*100).toFixed(0) : 0}%)
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
 
