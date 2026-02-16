@@ -25,7 +25,8 @@ class Load(BaseModel):
     num_of_pieces: int  # Number of individual items/pallets in the shipment
     miles: float  # Distance from origin to destination in miles
     dimensions: str  # Cargo dimensions as "LxWxH" in inches
-    target_carrier_rate: Optional[float] = None  # Broker target offer (12% margin)
+    target_carrier_rate: Optional[float] = None  # Broker target offer (5% margin)
+    cap_carrier_rate: Optional[float] = None  # Max acceptable rate (105% of loadboard)
 
 
 class LoadSearchParams(BaseModel):

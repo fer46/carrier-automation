@@ -6,12 +6,70 @@ from app.database import get_database
 from app.loads.models import Load
 
 
-def _apply_pricing(load: Load) -> Load:
-    """Calculate target carrier rate from the loadboard (shipper) rate.
+async def _get_call_pressure(load_ids: list[str]) -> dict[str, dict]:
+    """Batch query: get rate-rejection stats per load from call history.
 
-    - target_carrier_rate: 12% broker margin → carrier gets 88% of loadboard rate
+    Returns {load_id: {"total_calls": N, "rate_rejections": N}} for loads
+    that have at least one call record.
     """
-    load.target_carrier_rate = round(load.loadboard_rate * 0.88, 2)
+    if not load_ids:
+        return {}
+    db = get_database()
+    pipeline = [
+        {"$match": {"load_data.load_id_discussed": {"$in": load_ids}}},
+        {"$group": {
+            "_id": "$load_data.load_id_discussed",
+            "total_calls": {"$sum": 1},
+            "rate_rejections": {
+                "$sum": {"$cond": [
+                    {"$and": [
+                        {"$eq": ["$transcript_extraction.call_outcome", "rejected"]},
+                        {"$eq": [
+                            "$transcript_extraction.rejection_reason", "Rate too low"
+                        ]},
+                    ]},
+                    1, 0,
+                ]}
+            },
+        }},
+    ]
+    results = await db.call_records.aggregate(pipeline).to_list(length=None)
+    return {r["_id"]: r for r in results}
+
+
+def _apply_pricing(
+    load: Load, total_calls: int = 0, rate_rejections: int = 0
+) -> Load:
+    """Dynamic pricing based on pickup urgency and carrier rejection history.
+
+    Mimics a freight broker's decision-making:
+    - Urgent pickups or high rate-rejection counts → raise target toward loadboard rate
+    - Cold loads (distant pickup, few calls) → tighten cap toward loadboard rate
+
+    Pressure formula (0.0 = cold, 1.0 = hot):
+    - Urgency: linear 0→1 over 72 hours until pickup
+    - Rejection pressure: linear 0→1 over 5 "Rate too low" rejections
+    - Combined: max(urgency, rejection_pressure)
+
+    Rate multipliers:
+    - target: 0.95 + pressure × 0.05 → range [0.95, 1.0] (never exceeds loadboard)
+    - cap:    1.0 + min(pressure × 0.06, 0.05) → range [1.0, 1.05]
+    """
+    # Naive UTC comparison — stored datetimes are naive ISO strings
+    now = datetime.now(UTC).replace(tzinfo=None)
+    hours_to_pickup = max(
+        (load.pickup_datetime - now).total_seconds() / 3600, 0
+    )
+
+    urgency = max(1.0 - hours_to_pickup / 72, 0.0)
+    rejection_pressure = min(rate_rejections / 5, 1.0)
+    pressure = max(urgency, rejection_pressure)
+
+    target_mult = 0.95 + pressure * 0.05
+    cap_mult = 1.0 + min(pressure * 0.06, 0.05)
+
+    load.target_carrier_rate = round(load.loadboard_rate * target_mult, 2)
+    load.cap_carrier_rate = round(load.loadboard_rate * cap_mult, 2)
     return load
 
 
@@ -178,8 +236,16 @@ async def search_loads(
     results = await cursor.to_list(length=100)
 
     # Convert raw MongoDB dicts into validated Pydantic Load models
-    # and apply pricing calculations (target carrier rate)
-    loads = [_apply_pricing(Load(**doc)) for doc in results]
+    # and apply dynamic pricing based on call pressure
+    loads = [Load(**doc) for doc in results]
+    pressure = await _get_call_pressure([ld.load_id for ld in loads])
+    for load in loads:
+        stats = pressure.get(load.load_id, {})
+        _apply_pricing(
+            load,
+            total_calls=stats.get("total_calls", 0),
+            rate_rejections=stats.get("rate_rejections", 0),
+        )
 
     # --- Relevance ranking ---
     # Sort loads by how well they match the carrier's search criteria.
@@ -208,4 +274,11 @@ async def get_load_by_id(load_id: str) -> Optional[Load]:
     doc = await db.loads.find_one({"load_id": load_id}, {"_id": 0})
     if not doc:
         return None
-    return _apply_pricing(Load(**doc))
+    load = Load(**doc)
+    pressure = await _get_call_pressure([load_id])
+    stats = pressure.get(load_id, {})
+    return _apply_pricing(
+        load,
+        total_calls=stats.get("total_calls", 0),
+        rate_rejections=stats.get("rate_rejections", 0),
+    )
