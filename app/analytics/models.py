@@ -1,8 +1,6 @@
-from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field, model_validator
-
 
 # ---------------------------------------------------------------------------
 # Ingestion models (nested, mirrors webhook JSON)
@@ -24,14 +22,11 @@ class _WebhookModel(BaseModel):
                 and getattr(field.annotation, "__origin__", None) is list
             }
             return {
-                k: (
-                    None if v == ""
-                    else [v] if isinstance(v, str) and k in list_fields
-                    else v
-                )
+                k: (None if v == "" else [v] if isinstance(v, str) and k in list_fields else v)
                 for k, v in data.items()
             }
         return data
+
 
 class SystemData(_WebhookModel):
     call_id: str
@@ -128,6 +123,7 @@ class CallRecord(BaseModel):
 # ---------------------------------------------------------------------------
 # Response models
 # ---------------------------------------------------------------------------
+
 
 class IngestResponse(BaseModel):
     call_id: str
@@ -245,10 +241,10 @@ class CarriersResponse(BaseModel):
 
 
 class GeoCity(BaseModel):
-    name: str       # "Dallas, TX"
+    name: str  # "Dallas, TX"
     lat: float
     lng: float
-    volume: int     # total inbound+outbound count
+    volume: int  # total inbound+outbound count
 
 
 class GeoArc(BaseModel):
@@ -259,7 +255,7 @@ class GeoArc(BaseModel):
     dest_lat: float
     dest_lng: float
     count: int
-    arc_type: str   # "requested" | "booked"
+    arc_type: str  # "requested" | "booked"
 
 
 class GeographyResponse(BaseModel):

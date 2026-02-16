@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -12,15 +12,12 @@ pytestmark = pytest.mark.asyncio
 API_KEY = settings.API_KEY
 
 SAMPLE_CALL_RECORD = {
-    "system": {
-        "call_id": "test-call-001",
-        "call_duration": 245
-    },
+    "system": {"call_id": "test-call-001", "call_duration": 245},
     "fmcsa_data": {
         "carrier_mc_number": 1234,
         "carrier_name": "TYROLER METALS INC",
         "carrier_validation_result": "VALID",
-        "retrieval_date": "2026-02-13T19:45:01.867+0000"
+        "retrieval_date": "2026-02-13T19:45:01.867+0000",
     },
     "load_data": {
         "load_id_discussed": "LD-001",
@@ -32,7 +29,7 @@ SAMPLE_CALL_RECORD = {
         "equipment_type": "Dry Van",
         "miles": 920.0,
         "pickup_datetime": "2026-02-14T08:00:00",
-        "delivery_datetime": "2026-02-15T18:00:00"
+        "delivery_datetime": "2026-02-15T18:00:00",
     },
     "transcript_extraction": {
         "negotiation": {
@@ -48,37 +45,37 @@ SAMPLE_CALL_RECORD = {
         "outcome": {
             "call_outcome": "accepted",
             "rejection_reason": None,
-            "funnel_stage_reached": "transferred_to_sales"
+            "funnel_stage_reached": "transferred_to_sales",
         },
         "sentiment": {
             "call_sentiment": "positive",
             "sentiment_progression": "improving",
             "engagement_level": "high",
-            "carrier_expressed_interest_future": True
+            "carrier_expressed_interest_future": True,
         },
         "performance": {
             "agent_followed_protocol": True,
             "protocol_violations": [],
-            "agent_tone_quality": "professional"
+            "agent_tone_quality": "professional",
         },
         "conversation": {
             "ai_interruptions_count": 1,
             "transcription_errors_detected": False,
-            "carrier_had_to_repeat_info": False
+            "carrier_had_to_repeat_info": False,
         },
         "operational": {
             "transfer_to_sales_attempted": False,
             "transfer_to_sales_completed": False,
             "transfer_reason": None,
-            "loads_presented_count": 2
+            "loads_presented_count": 2,
         },
         "optional": {
             "negotiation_strategy_used": "anchoring_high",
             "carrier_negotiation_leverage": ["fuel_prices_mentioned"],
             "carrier_objections": ["rate_too_low"],
-            "carrier_questions_asked": ["Is the rate negotiable?"]
-        }
-    }
+            "carrier_questions_asked": ["Is the rate negotiable?"],
+        },
+    },
 }
 
 
@@ -112,9 +109,7 @@ async def ingest_client():
 
 async def test_ingest_call_record_returns_201(ingest_client):
     """POST a valid call record -> 201 with call_id and status."""
-    response = await ingest_client.post(
-        "/api/analytics/calls", json=SAMPLE_CALL_RECORD
-    )
+    response = await ingest_client.post("/api/analytics/calls", json=SAMPLE_CALL_RECORD)
     assert response.status_code == 201
     data = response.json()
     assert data["call_id"] == "test-call-001"
@@ -125,33 +120,27 @@ async def test_ingest_call_record_requires_api_key():
     """POST without API key -> 422."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        response = await ac.post(
-            "/api/analytics/calls", json=SAMPLE_CALL_RECORD
-        )
+        response = await ac.post("/api/analytics/calls", json=SAMPLE_CALL_RECORD)
         assert response.status_code == 422
 
 
 async def test_ingest_call_record_validates_body(ingest_client):
     """POST with invalid body -> 422."""
-    response = await ingest_client.post(
-        "/api/analytics/calls", json={"bad": "data"}
-    )
+    response = await ingest_client.post("/api/analytics/calls", json={"bad": "data"})
     assert response.status_code == 422
 
 
 async def test_ingest_sets_ingested_at_on_insert():
     """ingest_call_record uses $setOnInsert to stamp ingested_at on new records."""
     mock_db = _make_mock_db(find_one_result=None)
-    mock_db.call_records.update_one = AsyncMock(
-        return_value=MagicMock(upserted_id="new")
-    )
+    mock_db.call_records.update_one = AsyncMock(return_value=MagicMock(upserted_id="new"))
     with patch("app.analytics.service.get_database", return_value=mock_db):
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
             ac.headers["X-API-Key"] = API_KEY
-            before = datetime.now(tz=timezone.utc)
+            before = datetime.now(tz=UTC)
             await ac.post("/api/analytics/calls", json=SAMPLE_CALL_RECORD)
-            after = datetime.now(tz=timezone.utc)
+            after = datetime.now(tz=UTC)
 
     # Verify update_one was called with $setOnInsert containing ingested_at
     call_args = mock_db.call_records.update_one.call_args
@@ -184,17 +173,21 @@ async def test_summary_date_filter_uses_ingested_at():
 
 @pytest.fixture
 async def summary_client():
-    mock_db = _make_mock_db(aggregate_result=[{
-        "total_calls": 10,
-        "accepted": 7,
-        "avg_duration": 245.5,
-        "avg_rounds": 2.1,
-        "avg_margin": 8.4,
-        "total_booked_revenue": 14000.0,
-        "total_margin_earned": 1400.0,
-        "avg_rate_per_mile": 2.17,
-        "unique_carriers": [1234, 5678, 9012, 3456, 7890],
-    }])
+    mock_db = _make_mock_db(
+        aggregate_result=[
+            {
+                "total_calls": 10,
+                "accepted": 7,
+                "avg_duration": 245.5,
+                "avg_rounds": 2.1,
+                "avg_margin": 8.4,
+                "total_booked_revenue": 14000.0,
+                "total_margin_earned": 1400.0,
+                "avg_rate_per_mile": 2.17,
+                "unique_carriers": [1234, 5678, 9012, 3456, 7890],
+            }
+        ]
+    )
     with patch("app.analytics.service.get_database", return_value=mock_db):
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
@@ -235,32 +228,39 @@ async def test_summary_empty_db():
 @pytest.fixture
 async def operations_client():
     call_count = 0
+
     def side_effect_aggregate(pipeline):
         nonlocal call_count
         call_count += 1
         mock_cursor = AsyncMock()
         if call_count == 1:
             # Pipeline 1: calls_over_time
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": "2024-06-15", "count": 5},
-                {"_id": "2024-06-16", "count": 3},
-            ])
+            mock_cursor.to_list = AsyncMock(
+                return_value=[
+                    {"_id": "2024-06-15", "count": 5},
+                    {"_id": "2024-06-16", "count": 3},
+                ]
+            )
         elif call_count == 2:
             # Pipeline 2: rejection_reasons
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": "rate_too_high", "count": 2},
-            ])
+            mock_cursor.to_list = AsyncMock(
+                return_value=[
+                    {"_id": "rate_too_high", "count": 2},
+                ]
+            )
         elif call_count == 3:
             # Pipeline 3: conversion funnel
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": "call_started", "count": 100},
-                {"_id": "fmcsa_verified", "count": 90},
-                {"_id": "load_matched", "count": 75},
-                {"_id": "offer_pitched", "count": 60},
-                {"_id": "negotiation_entered", "count": 45},
-                {"_id": "deal_agreed", "count": 30},
-                {"_id": "transferred_to_sales", "count": 20},
-            ])
+            mock_cursor.to_list = AsyncMock(
+                return_value=[
+                    {"_id": "call_started", "count": 100},
+                    {"_id": "fmcsa_verified", "count": 90},
+                    {"_id": "load_matched", "count": 75},
+                    {"_id": "offer_pitched", "count": 60},
+                    {"_id": "negotiation_entered", "count": 45},
+                    {"_id": "deal_agreed", "count": 30},
+                    {"_id": "transferred_to_sales", "count": 20},
+                ]
+            )
         return mock_cursor
 
     mock_db = _make_mock_db()
@@ -300,32 +300,43 @@ async def test_operations_returns_200(operations_client):
 @pytest.fixture
 async def negotiations_analytics_client():
     call_count = 0
+
     def side_effect_aggregate(pipeline):
         nonlocal call_count
         call_count += 1
         mock_cursor = AsyncMock()
         if call_count == 1:
-            mock_cursor.to_list = AsyncMock(return_value=[{
-                "avg_savings": 150.0,
-                "avg_savings_percent": 7.5,
-                "avg_rounds": 2.1,
-            }])
+            mock_cursor.to_list = AsyncMock(
+                return_value=[
+                    {
+                        "avg_savings": 150.0,
+                        "avg_savings_percent": 7.5,
+                        "avg_rounds": 2.1,
+                    }
+                ]
+            )
         elif call_count == 2:
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": "Accepted at First Offer", "count": 3},
-                {"_id": "Negotiated & Agreed", "count": 5},
-                {"_id": "No Deal", "count": 2},
-            ])
+            mock_cursor.to_list = AsyncMock(
+                return_value=[
+                    {"_id": "Accepted at First Offer", "count": 3},
+                    {"_id": "Negotiated & Agreed", "count": 5},
+                    {"_id": "No Deal", "count": 2},
+                ]
+            )
         elif call_count == 3:
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": 0, "count": 3},
-                {"_id": 5, "count": 5},
-                {"_id": 10, "count": 2},
-            ])
+            mock_cursor.to_list = AsyncMock(
+                return_value=[
+                    {"_id": 0, "count": 3},
+                    {"_id": 5, "count": 5},
+                    {"_id": 10, "count": 2},
+                ]
+            )
         elif call_count == 4:
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": "anchoring_high", "total": 10, "accepted": 8, "avg_rounds": 2.3},
-            ])
+            mock_cursor.to_list = AsyncMock(
+                return_value=[
+                    {"_id": "anchoring_high", "total": 10, "accepted": 8, "avg_rounds": 2.3},
+                ]
+            )
         return mock_cursor
 
     mock_db = _make_mock_db()
@@ -363,39 +374,50 @@ async def test_negotiations_returns_200(negotiations_analytics_client):
 @pytest.fixture
 async def carriers_client():
     call_count = 0
+
     def side_effect_aggregate(pipeline):
         nonlocal call_count
         call_count += 1
         mock_cursor = AsyncMock()
         if call_count == 1:
             # Pipeline 1: top objections
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": "rate_too_low", "count": 4},
-            ])
+            mock_cursor.to_list = AsyncMock(
+                return_value=[
+                    {"_id": "rate_too_low", "count": 4},
+                ]
+            )
         elif call_count == 2:
             # Pipeline 2: carrier leaderboard
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": 1234, "carrier_name": "TYROLER METALS", "calls": 5, "accepted": 4},
-            ])
+            mock_cursor.to_list = AsyncMock(
+                return_value=[
+                    {"_id": 1234, "carrier_name": "TYROLER METALS", "calls": 5, "accepted": 4},
+                ]
+            )
         elif call_count == 3:
             # Pipeline 3: top requested lanes
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": "Chicago, IL → Dallas, TX", "count": 12},
-                {"_id": "Atlanta, GA → Miami, FL", "count": 8},
-            ])
+            mock_cursor.to_list = AsyncMock(
+                return_value=[
+                    {"_id": "Chicago, IL → Dallas, TX", "count": 12},
+                    {"_id": "Atlanta, GA → Miami, FL", "count": 8},
+                ]
+            )
         elif call_count == 4:
             # Pipeline 4: top actual lanes
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": "Chicago, IL → Dallas, TX", "count": 10},
-                {"_id": "LA, CA → Phoenix, AZ", "count": 6},
-            ])
+            mock_cursor.to_list = AsyncMock(
+                return_value=[
+                    {"_id": "Chicago, IL → Dallas, TX", "count": 10},
+                    {"_id": "LA, CA → Phoenix, AZ", "count": 6},
+                ]
+            )
         elif call_count == 5:
             # Pipeline 5: equipment distribution
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": "Dry Van", "count": 15},
-                {"_id": "Reefer", "count": 8},
-                {"_id": "Flatbed", "count": 3},
-            ])
+            mock_cursor.to_list = AsyncMock(
+                return_value=[
+                    {"_id": "Dry Van", "count": 15},
+                    {"_id": "Reefer", "count": 8},
+                    {"_id": "Flatbed", "count": 3},
+                ]
+            )
         return mock_cursor
 
     mock_db = _make_mock_db()
@@ -434,21 +456,26 @@ async def test_carriers_returns_200(carriers_client):
 @pytest.fixture
 async def geography_client():
     call_count = 0
+
     def side_effect_aggregate(pipeline):
         nonlocal call_count
         call_count += 1
         mock_cursor = AsyncMock()
         if call_count == 1:
             # Pipeline 1: requested lanes (free-form text)
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": "Chicago, IL \u2192 Dallas, TX", "count": 5},
-                {"_id": "Timbuktu -> Nowhere", "count": 2},  # unparseable
-            ])
+            mock_cursor.to_list = AsyncMock(
+                return_value=[
+                    {"_id": "Chicago, IL \u2192 Dallas, TX", "count": 5},
+                    {"_id": "Timbuktu -> Nowhere", "count": 2},  # unparseable
+                ]
+            )
         elif call_count == 2:
             # Pipeline 2: booked lanes (origin/destination dicts)
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": {"origin": "Atlanta, GA", "destination": "Miami, FL"}, "count": 3},
-            ])
+            mock_cursor.to_list = AsyncMock(
+                return_value=[
+                    {"_id": {"origin": "Atlanta, GA", "destination": "Miami, FL"}, "count": 3},
+                ]
+            )
         return mock_cursor
 
     mock_db = _make_mock_db()

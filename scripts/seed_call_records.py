@@ -9,7 +9,7 @@ import argparse
 import asyncio
 import random
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -281,11 +281,13 @@ def generate_call_record(call_index: int, base_date: datetime) -> dict:
         if rounds >= 3:
             negotiation["carrier_third_offer"] = round(
                 negotiation.get("carrier_second_offer", carrier_first_offer)
-                * random.uniform(0.94, 0.98), 2,
+                * random.uniform(0.94, 0.98),
+                2,
             )
             negotiation["broker_third_counter"] = round(
                 negotiation.get("broker_second_counter", broker_first_counter)
-                * random.uniform(1.00, 1.04), 2,
+                * random.uniform(1.00, 1.04),
+                2,
             )
 
         if is_accepted:
@@ -304,9 +306,7 @@ def generate_call_record(call_index: int, base_date: datetime) -> dict:
     # -- Rejection reason --
     rejection_reason = None
     if not is_accepted and stage_idx >= 3:
-        rejection_reason = random.choices(
-            REJECTION_REASONS, weights=REJECTION_WEIGHTS, k=1
-        )[0]
+        rejection_reason = random.choices(REJECTION_REASONS, weights=REJECTION_WEIGHTS, k=1)[0]
 
     # -- Strategy --
     strategy_used = None
@@ -330,7 +330,8 @@ def generate_call_record(call_index: int, base_date: datetime) -> dict:
         # Carrier requested a different but realistic lane (weighted corridors)
         # Bias toward same-origin lanes to simulate "I'm in X, what do you have?"
         same_origin_corridors = [
-            (i, c) for i, c in enumerate(FREIGHT_CORRIDORS)
+            (i, c)
+            for i, c in enumerate(FREIGHT_CORRIDORS)
             if c[0] == origin and c[1] != destination
         ]
         if same_origin_corridors and random.random() < 0.60:
@@ -340,7 +341,8 @@ def generate_call_record(call_index: int, base_date: datetime) -> dict:
         else:
             # Pick from weighted corridors (excluding the booked lane)
             other_corridors = [
-                (i, c) for i, c in enumerate(FREIGHT_CORRIDORS)
+                (i, c)
+                for i, c in enumerate(FREIGHT_CORRIDORS)
                 if not (c[0] == origin and c[1] == destination)
             ]
             if other_corridors:
@@ -363,14 +365,10 @@ def generate_call_record(call_index: int, base_date: datetime) -> dict:
     followed_protocol = random.random() < 0.91
     violations = []
     if not followed_protocol:
-        violations = random.sample(
-            PROTOCOL_VIOLATIONS, random.randint(1, 2)
-        )
+        violations = random.sample(PROTOCOL_VIOLATIONS, random.randint(1, 2))
 
     # -- Conversation quality (low interruptions, few errors) --
-    interruptions = random.choices(
-        [0, 1, 2, 3], weights=[0.45, 0.35, 0.15, 0.05], k=1
-    )[0]
+    interruptions = random.choices([0, 1, 2, 3], weights=[0.45, 0.35, 0.15, 0.05], k=1)[0]
     transcription_errors = random.random() < 0.05
     carrier_had_to_repeat = random.random() < 0.08
 
@@ -387,9 +385,7 @@ def generate_call_record(call_index: int, base_date: datetime) -> dict:
         transfer_completed = False
 
     # -- Alternate loads --
-    alternate_loads = random.choices(
-        [0, 1, 2, 3], weights=[0.35, 0.35, 0.20, 0.10], k=1
-    )[0]
+    alternate_loads = random.choices([0, 1, 2, 3], weights=[0.35, 0.35, 0.20, 0.10], k=1)[0]
 
     # -- FMCSA (nearly all active) --
     fmcsa_validation = random.choices(
@@ -434,9 +430,7 @@ def generate_call_record(call_index: int, base_date: datetime) -> dict:
             "negotiation": negotiation,
             "sentiment": {
                 "call_sentiment": sentiment,
-                "sentiment_progression": random.choice(
-                    ["improving", "stable", "declining"]
-                ),
+                "sentiment_progression": random.choice(["improving", "stable", "declining"]),
                 "engagement_level": engagement,
                 "carrier_expressed_interest_future": (
                     random.random() < 0.65 if is_accepted else random.random() < 0.25
@@ -457,8 +451,12 @@ def generate_call_record(call_index: int, base_date: datetime) -> dict:
                 "transfer_to_sales_completed": transfer_completed,
                 "transfer_reason": (
                     random.choice(
-                        ["High-value deal", "Complex negotiation", "VIP carrier",
-                         "Multi-load opportunity"]
+                        [
+                            "High-value deal",
+                            "Complex negotiation",
+                            "VIP carrier",
+                            "Multi-load opportunity",
+                        ]
                     )
                     if transfer_attempted
                     else None
@@ -527,7 +525,7 @@ async def seed():
         print(f"Removed {deleted.deleted_count} previous mock records")
 
     # Base date: 30 days ago
-    base_date = datetime.now(tz=timezone.utc) - timedelta(days=30)
+    base_date = datetime.now(tz=UTC) - timedelta(days=30)
 
     records = [generate_call_record(i, base_date) for i in range(1, NUM_RECORDS + 1)]
 
@@ -539,11 +537,11 @@ async def seed():
 
     # Summary
     accepted = sum(
-        1 for r in records
-        if r["transcript_extraction"]["outcome"]["call_outcome"] == "accepted"
+        1 for r in records if r["transcript_extraction"]["outcome"]["call_outcome"] == "accepted"
     )
     with_negotiation = sum(
-        1 for r in records
+        1
+        for r in records
         if r["transcript_extraction"]["negotiation"].get("final_agreed_rate")
         and r["transcript_extraction"]["negotiation"].get("negotiation_rounds", 0) > 0
     )
@@ -554,15 +552,12 @@ async def seed():
         if lb and fa:
             margins.append((lb - fa) / lb * 100)
 
-    print(f"  Accepted: {accepted}/{len(records)} ({accepted/len(records)*100:.1f}%)")
+    print(f"  Accepted: {accepted}/{len(records)} ({accepted / len(records) * 100:.1f}%)")
     print(f"  Negotiated deals: {with_negotiation}")
     if margins:
-        print(f"  Avg margin: {sum(margins)/len(margins):.1f}%")
+        print(f"  Avg margin: {sum(margins) / len(margins):.1f}%")
     print(f"  Date range: {base_date.date()} to {(base_date + timedelta(days=29)).date()}")
-    print(
-        f"  Unique carriers: "
-        f"{len(set(r['fmcsa_data']['carrier_mc_number'] for r in records))}"
-    )
+    print(f"  Unique carriers: {len(set(r['fmcsa_data']['carrier_mc_number'] for r in records))}")
     client.close()
 
 

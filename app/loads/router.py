@@ -29,7 +29,7 @@ async def search(
     # These come from the voice AI after extracting carrier preferences from the call.
     # Numeric params are typed as str because the voice AI may send "" for empty values,
     # which FastAPI can't parse as float. We coerce "" → None below.
-    validation_check: str = Query(...),  # Must be "VALID" — guardrail to ensure carrier is validated
+    validation_check: str = Query(...),  # Must be "VALID" — guardrail for carrier validation
     origin: Optional[str] = Query(None),  # e.g. "Denver" — where the carrier is now
     destination: Optional[str] = Query(None),  # e.g. "Chicago" — where they want to go
     equipment_type: Optional[str] = Query(None),  # e.g. "Dry Van" — what truck they have

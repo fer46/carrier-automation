@@ -8,7 +8,6 @@ to normalize free-form city names and parse lane strings like
 import re
 from typing import Optional
 
-
 # ---------------------------------------------------------------------------
 # City coordinates: ~50 major US freight hubs
 # ---------------------------------------------------------------------------
@@ -78,6 +77,7 @@ CITY_COORDS: dict[str, tuple[float, float]] = {
 # Reverse lookup index for fuzzy city resolution
 # ---------------------------------------------------------------------------
 
+
 def _build_city_lookup() -> dict[str, str]:
     """Build a normalised lookup: multiple forms -> canonical "City, ST"."""
     lookup: dict[str, str] = {}
@@ -119,9 +119,9 @@ def resolve_city(text: str) -> Optional[str]:
 
 # Separators tried in order; first match wins.
 _LANE_SEPARATORS = [
-    " \u2192 ",    # " → "  (unicode arrow)
-    " -> ",        # " -> " (ASCII arrow)
-    " - ",         # " - "  (dash)
+    " \u2192 ",  # " → "  (unicode arrow)
+    " -> ",  # " -> " (ASCII arrow)
+    " - ",  # " - "  (dash)
 ]
 
 # Regex for case-insensitive " to " separator (word boundary aware)
@@ -156,8 +156,8 @@ def parse_lane(raw: str) -> Optional[tuple[str, str]]:
         # Try " to " separator
         match = _TO_PATTERN.search(raw)
         if match:
-            origin_raw = raw[:match.start()]
-            dest_raw = raw[match.end():]
+            origin_raw = raw[: match.start()]
+            dest_raw = raw[match.end() :]
 
     if origin_raw is None or dest_raw is None:
         return None

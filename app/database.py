@@ -8,6 +8,8 @@ client: Optional[AsyncIOMotorClient] = None
 
 
 def get_database() -> AsyncIOMotorDatabase:
+    if client is None:
+        raise RuntimeError("Database client is not initialized. Call connect_db() first.")
     return client[settings.DATABASE_NAME]
 
 

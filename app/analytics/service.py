@@ -1,4 +1,4 @@
-from datetime import datetime, time, timezone
+from datetime import UTC, datetime, time
 from typing import Optional
 
 from app.analytics.lane_parser import CITY_COORDS, parse_lane, resolve_city
@@ -14,10 +14,10 @@ from app.analytics.models import (
     InterruptionTimeSeriesPoint,
     LaneCount,
     MarginBucket,
+    NegotiationOutcome,
     NegotiationsResponse,
     ObjectionCount,
     OperationsResponse,
-    NegotiationOutcome,
     ReasonCount,
     StrategyRow,
     SummaryResponse,
@@ -27,9 +27,7 @@ from app.analytics.models import (
 from app.database import get_database
 
 
-def _build_date_match(
-    date_from: Optional[str] = None, date_to: Optional[str] = None
-) -> dict:
+def _build_date_match(date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
     match: dict = {}
     if date_from or date_to:
         date_filter: dict = {}
@@ -54,7 +52,7 @@ async def ingest_call_record(record: dict) -> str:
         {"system.call_id": call_id},
         {
             "$set": record,
-            "$setOnInsert": {"ingested_at": datetime.now(tz=timezone.utc)},
+            "$setOnInsert": {"ingested_at": datetime.now(tz=UTC)},
         },
         upsert=True,
     )
@@ -97,9 +95,7 @@ async def get_summary(
                     }
                 },
                 "avg_duration": {"$avg": "$system.call_duration"},
-                "avg_rounds": {
-                    "$avg": "$transcript_extraction.negotiation.negotiation_rounds"
-                },
+                "avg_rounds": {"$avg": "$transcript_extraction.negotiation.negotiation_rounds"},
                 "avg_margin": {
                     "$avg": {
                         "$cond": [
@@ -223,9 +219,7 @@ async def get_summary(
                         ]
                     }
                 },
-                "unique_carriers": {
-                    "$addToSet": "$fmcsa_data.carrier_mc_number"
-                },
+                "unique_carriers": {"$addToSet": "$fmcsa_data.carrier_mc_number"},
             }
         }
     )
@@ -292,9 +286,7 @@ async def get_operations(
 
     # --- Pipeline 2: rejection_reasons ---
     p2: list[dict] = []
-    rejection_match: dict = {
-        "transcript_extraction.outcome.rejection_reason": {"$ne": None}
-    }
+    rejection_match: dict = {"transcript_extraction.outcome.rejection_reason": {"$ne": None}}
     if date_match:
         rejection_match.update(date_match)
     p2.append({"$match": rejection_match})
@@ -311,9 +303,7 @@ async def get_operations(
 
     # --- Pipeline 3: conversion funnel ---
     p3: list[dict] = []
-    funnel_match: dict = {
-        "transcript_extraction.outcome.funnel_stage_reached": {"$ne": None}
-    }
+    funnel_match: dict = {"transcript_extraction.outcome.funnel_stage_reached": {"$ne": None}}
     if date_match:
         funnel_match.update(date_match)
     p3.append({"$match": funnel_match})
@@ -330,12 +320,8 @@ async def get_operations(
     r2 = await db.call_records.aggregate(p2).to_list(length=None)
     r3 = await db.call_records.aggregate(p3).to_list(length=None)
 
-    calls_over_time = [
-        TimeSeriesPoint(date=row["_id"], count=row["count"]) for row in r1
-    ]
-    rejection_reasons = [
-        ReasonCount(reason=row["_id"], count=row["count"]) for row in r2
-    ]
+    calls_over_time = [TimeSeriesPoint(date=row["_id"], count=row["count"]) for row in r1]
+    rejection_reasons = [ReasonCount(reason=row["_id"], count=row["count"]) for row in r2]
 
     # Build funnel with cumulative counts (each stage includes all records
     # that passed through it, i.e. records at later stages count toward
@@ -441,9 +427,7 @@ async def get_negotiations(
                         ]
                     }
                 },
-                "avg_rounds": {
-                    "$avg": "$transcript_extraction.negotiation.negotiation_rounds"
-                },
+                "avg_rounds": {"$avg": "$transcript_extraction.negotiation.negotiation_rounds"},
             }
         }
     )
@@ -452,32 +436,46 @@ async def get_negotiations(
     p2: list[dict] = []
     if date_match:
         p2.append({"$match": date_match})
-    p2.append({
-        "$addFields": {
-            "outcome_category": {
-                "$switch": {
-                    "branches": [
-                        {
-                            "case": {"$not": [{"$eq": [
-                                "$transcript_extraction.outcome.call_outcome", "accepted"
-                            ]}]},
-                            "then": "No Deal",
-                        },
-                        {
-                            "case": {"$gt": [
-                                {"$ifNull": [
-                                    "$transcript_extraction.negotiation.negotiation_rounds", 0
-                                ]},
-                                0,
-                            ]},
-                            "then": "Negotiated & Agreed",
-                        },
-                    ],
-                    "default": "Accepted at First Offer",
+    p2.append(
+        {
+            "$addFields": {
+                "outcome_category": {
+                    "$switch": {
+                        "branches": [
+                            {
+                                "case": {
+                                    "$not": [
+                                        {
+                                            "$eq": [
+                                                "$transcript_extraction.outcome.call_outcome",
+                                                "accepted",
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "then": "No Deal",
+                            },
+                            {
+                                "case": {
+                                    "$gt": [
+                                        {
+                                            "$ifNull": [
+                                                "$transcript_extraction.negotiation.negotiation_rounds",
+                                                0,
+                                            ]
+                                        },
+                                        0,
+                                    ]
+                                },
+                                "then": "Negotiated & Agreed",
+                            },
+                        ],
+                        "default": "Accepted at First Offer",
+                    }
                 }
             }
         }
-    })
+    )
     p2.append({"$group": {"_id": "$outcome_category", "count": {"$sum": 1}}})
 
     # --- Pipeline 3: margin distribution ---
@@ -549,9 +547,7 @@ async def get_negotiations(
                         ]
                     }
                 },
-                "avg_rounds": {
-                    "$avg": "$transcript_extraction.negotiation.negotiation_rounds"
-                },
+                "avg_rounds": {"$avg": "$transcript_extraction.negotiation.negotiation_rounds"},
             }
         }
     )
@@ -574,8 +570,7 @@ async def get_negotiations(
     outcome_map = {row["_id"]: row["count"] for row in r2}
     all_categories = ["Accepted at First Offer", "Negotiated & Agreed", "No Deal"]
     negotiation_outcomes = [
-        NegotiationOutcome(name=cat, count=outcome_map.get(cat, 0))
-        for cat in all_categories
+        NegotiationOutcome(name=cat, count=outcome_map.get(cat, 0)) for cat in all_categories
     ]
 
     # Margin distribution
@@ -589,7 +584,9 @@ async def get_negotiations(
     strategy_effectiveness = [
         StrategyRow(
             strategy=row["_id"],
-            acceptance_rate=round(row["accepted"] / row["total"] * 100, 1) if row["total"] else 0.0,
+            acceptance_rate=(
+                round(row["accepted"] / row["total"] * 100, 1) if row["total"] else 0.0
+            ),
             avg_rounds=round(row["avg_rounds"] or 0.0, 1),
             count=row["total"],
         )
@@ -704,9 +701,7 @@ async def get_ai_quality(
                         "date": "$ingested_at",
                     }
                 },
-                "avg": {
-                    "$avg": "$transcript_extraction.conversation.ai_interruptions_count"
-                },
+                "avg": {"$avg": "$transcript_extraction.conversation.ai_interruptions_count"},
             }
         }
     )
@@ -739,21 +734,16 @@ async def get_ai_quality(
         total = row["total"]
         if total:
             compliance_rate = round(row["compliant"] / total * 100, 1)
-            transcription_error_rate = round(
-                row["transcription_errors"] / total * 100, 1
-            )
+            transcription_error_rate = round(row["transcription_errors"] / total * 100, 1)
             carrier_repeat_rate = round(row["carrier_repeats"] / total * 100, 1)
         avg_interruptions = round(row["avg_interruptions"] or 0.0, 1)
 
     # Common violations
-    common_violations = [
-        ViolationCount(violation=row["_id"], count=row["count"]) for row in r2
-    ]
+    common_violations = [ViolationCount(violation=row["_id"], count=row["count"]) for row in r2]
 
     # Interruptions over time
     interruptions_over_time = [
-        InterruptionTimeSeriesPoint(date=row["_id"], avg=round(row["avg"], 1))
-        for row in r3
+        InterruptionTimeSeriesPoint(date=row["_id"], avg=round(row["avg"], 1)) for row in r3
     ]
 
     # Tone distribution
@@ -833,9 +823,7 @@ async def get_carriers(
     if date_match:
         req_lane_match.update(date_match)
     p3.append({"$match": req_lane_match})
-    p3.append(
-        {"$group": {"_id": "$load_data.carrier_requested_lane", "count": {"$sum": 1}}}
-    )
+    p3.append({"$group": {"_id": "$load_data.carrier_requested_lane", "count": {"$sum": 1}}})
     p3.append({"$sort": {"count": -1}})
     p3.append({"$limit": 10})
 
@@ -871,9 +859,7 @@ async def get_carriers(
     if date_match:
         equip_match.update(date_match)
     p5.append({"$match": equip_match})
-    p5.append(
-        {"$group": {"_id": "$load_data.equipment_type", "count": {"$sum": 1}}}
-    )
+    p5.append({"$group": {"_id": "$load_data.equipment_type", "count": {"$sum": 1}}})
     p5.append({"$sort": {"count": -1}})
 
     r1 = await db.call_records.aggregate(p1).to_list(length=None)
@@ -883,9 +869,7 @@ async def get_carriers(
     r5 = await db.call_records.aggregate(p5).to_list(length=None)
 
     # Top objections
-    top_objections = [
-        ObjectionCount(objection=row["_id"], count=row["count"]) for row in r1
-    ]
+    top_objections = [ObjectionCount(objection=row["_id"], count=row["count"]) for row in r1]
 
     # Carrier leaderboard
     carrier_leaderboard = [
@@ -901,12 +885,8 @@ async def get_carriers(
     ]
 
     # Lane intelligence
-    top_requested_lanes = [
-        LaneCount(lane=row["_id"], count=row["count"]) for row in r3
-    ]
-    top_actual_lanes = [
-        LaneCount(lane=row["_id"], count=row["count"]) for row in r4
-    ]
+    top_requested_lanes = [LaneCount(lane=row["_id"], count=row["count"]) for row in r3]
+    top_actual_lanes = [LaneCount(lane=row["_id"], count=row["count"]) for row in r4]
     equipment_distribution = [
         EquipmentCount(equipment_type=row["_id"], count=row["count"]) for row in r5
     ]
@@ -937,9 +917,7 @@ async def get_geography(
     if date_match:
         req_match.update(date_match)
     p1.append({"$match": req_match})
-    p1.append(
-        {"$group": {"_id": "$load_data.carrier_requested_lane", "count": {"$sum": 1}}}
-    )
+    p1.append({"$group": {"_id": "$load_data.carrier_requested_lane", "count": {"$sum": 1}}})
     p1.append({"$sort": {"count": -1}})
     p1.append({"$limit": 20})
 
@@ -1002,26 +980,26 @@ async def get_geography(
     for row in r2:
         origin_raw = row["_id"]["origin"]
         dest_raw = row["_id"]["destination"]
-        origin = resolve_city(origin_raw)
-        dest = resolve_city(dest_raw)
-        if not origin or not dest:
+        resolved_origin = resolve_city(origin_raw)
+        resolved_dest = resolve_city(dest_raw)
+        if not resolved_origin or not resolved_dest:
             continue
-        o_coords = CITY_COORDS[origin]
-        d_coords = CITY_COORDS[dest]
+        o_coords = CITY_COORDS[resolved_origin]
+        d_coords = CITY_COORDS[resolved_dest]
         arcs.append(
             GeoArc(
-                origin=origin,
+                origin=resolved_origin,
                 origin_lat=o_coords[0],
                 origin_lng=o_coords[1],
-                destination=dest,
+                destination=resolved_dest,
                 dest_lat=d_coords[0],
                 dest_lng=d_coords[1],
                 count=row["count"],
                 arc_type="booked",
             )
         )
-        _add_volume(origin, row["count"])
-        _add_volume(dest, row["count"])
+        _add_volume(resolved_origin, row["count"])
+        _add_volume(resolved_dest, row["count"])
 
     cities = [
         GeoCity(
