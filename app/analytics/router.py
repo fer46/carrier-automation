@@ -7,6 +7,7 @@ from app.analytics.models import (
     AIQualityResponse,
     CallRecord,
     CarriersResponse,
+    GeographyResponse,
     IngestResponse,
     NegotiationsResponse,
     OperationsResponse,
@@ -15,6 +16,7 @@ from app.analytics.models import (
 from app.analytics.service import (
     get_ai_quality,
     get_carriers,
+    get_geography,
     get_negotiations,
     get_operations,
     get_summary,
@@ -74,3 +76,11 @@ async def carriers(
     date_to: Optional[str] = Query(None, alias="to"),
 ):
     return await get_carriers(date_from, date_to)
+
+
+@router.get("/geography", response_model=GeographyResponse)
+async def geography(
+    date_from: Optional[str] = Query(None, alias="from"),
+    date_to: Optional[str] = Query(None, alias="to"),
+):
+    return await get_geography(date_from, date_to)

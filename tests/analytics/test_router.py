@@ -473,9 +473,68 @@ async def test_carriers_returns_200(carriers_client):
     assert data["carrier_leaderboard"][0]["acceptance_rate"] == 80.0
     # Lane intelligence assertions
     assert len(data["top_requested_lanes"]) == 2
-    assert data["top_requested_lanes"][0]["lane"] == "Chicago, IL → Dallas, TX"
+    assert data["top_requested_lanes"][0]["lane"] == "Chicago, IL \u2192 Dallas, TX"
     assert data["top_requested_lanes"][0]["count"] == 12
     assert len(data["top_actual_lanes"]) == 2
-    assert data["top_actual_lanes"][0]["lane"] == "Chicago, IL → Dallas, TX"
+    assert data["top_actual_lanes"][0]["lane"] == "Chicago, IL \u2192 Dallas, TX"
     assert len(data["equipment_distribution"]) == 3
     assert data["equipment_distribution"][0]["equipment_type"] == "Dry Van"
+
+
+# --- Geography Tests ---
+
+
+@pytest.fixture
+async def geography_client():
+    call_count = 0
+    def side_effect_aggregate(pipeline):
+        nonlocal call_count
+        call_count += 1
+        mock_cursor = AsyncMock()
+        if call_count == 1:
+            # Pipeline 1: requested lanes (free-form text)
+            mock_cursor.to_list = AsyncMock(return_value=[
+                {"_id": "Chicago, IL \u2192 Dallas, TX", "count": 5},
+                {"_id": "Timbuktu -> Nowhere", "count": 2},  # unparseable
+            ])
+        elif call_count == 2:
+            # Pipeline 2: booked lanes (origin/destination dicts)
+            mock_cursor.to_list = AsyncMock(return_value=[
+                {"_id": {"origin": "Atlanta, GA", "destination": "Miami, FL"}, "count": 3},
+            ])
+        return mock_cursor
+
+    mock_db = _make_mock_db()
+    mock_db.call_records.aggregate = MagicMock(side_effect=side_effect_aggregate)
+    with patch("app.analytics.service.get_database", return_value=mock_db):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            ac.headers["X-API-Key"] = API_KEY
+            yield ac
+
+
+async def test_geography_returns_200(geography_client):
+    response = await geography_client.get("/api/analytics/geography")
+    assert response.status_code == 200
+    data = response.json()
+    # 1 requested arc (unparseable skipped) + 1 booked arc = 2 total
+    assert len(data["arcs"]) == 2
+    requested = [a for a in data["arcs"] if a["arc_type"] == "requested"]
+    booked = [a for a in data["arcs"] if a["arc_type"] == "booked"]
+    assert len(requested) == 1
+    assert len(booked) == 1
+    # Check requested arc coordinates
+    assert requested[0]["origin"] == "Chicago, IL"
+    assert requested[0]["destination"] == "Dallas, TX"
+    assert requested[0]["origin_lat"] != 0
+    assert requested[0]["origin_lng"] != 0
+    # Check booked arc
+    assert booked[0]["origin"] == "Atlanta, GA"
+    assert booked[0]["destination"] == "Miami, FL"
+    # Cities: Chicago, Dallas, Atlanta, Miami = 4
+    assert len(data["cities"]) == 4
+    city_names = {c["name"] for c in data["cities"]}
+    assert "Chicago, IL" in city_names
+    assert "Dallas, TX" in city_names
+    assert "Atlanta, GA" in city_names
+    assert "Miami, FL" in city_names

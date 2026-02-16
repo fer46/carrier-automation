@@ -155,3 +155,31 @@ export interface CarriersData {
   /** Equipment type distribution across calls. */
   equipment_distribution: EquipmentCount[];
 }
+
+// ---------------------------------------------------------------------------
+// 6. Geography -- /api/analytics/geography
+//    Arc map showing requested vs booked lanes across US cities.
+// ---------------------------------------------------------------------------
+
+export interface GeoCity {
+  name: string;
+  lat: number;
+  lng: number;
+  volume: number;
+}
+
+export interface GeoArc {
+  origin: string;
+  origin_lat: number;
+  origin_lng: number;
+  destination: string;
+  dest_lat: number;
+  dest_lng: number;
+  count: number;
+  arc_type: 'requested' | 'booked';
+}
+
+export interface GeographyData {
+  arcs: GeoArc[];
+  cities: GeoCity[];
+}

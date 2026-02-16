@@ -1,12 +1,16 @@
 from datetime import datetime, time, timezone
 from typing import Optional
 
+from app.analytics.lane_parser import CITY_COORDS, parse_lane, resolve_city
 from app.analytics.models import (
     AIQualityResponse,
     CarrierLeaderboardRow,
     CarriersResponse,
     EquipmentCount,
     FunnelStage,
+    GeoArc,
+    GeoCity,
+    GeographyResponse,
     InterruptionTimeSeriesPoint,
     LaneCount,
     MarginBucket,
@@ -914,3 +918,119 @@ async def get_carriers(
         top_actual_lanes=top_actual_lanes,
         equipment_distribution=equipment_distribution,
     )
+
+
+# ---------------------------------------------------------------------------
+# Geography
+# ---------------------------------------------------------------------------
+
+
+async def get_geography(
+    date_from: Optional[str] = None, date_to: Optional[str] = None
+) -> GeographyResponse:
+    db = get_database()
+    date_match = _build_date_match(date_from, date_to)
+
+    # --- Pipeline 1: requested lanes (free-form text) ---
+    p1: list[dict] = []
+    req_match: dict = {"load_data.carrier_requested_lane": {"$ne": None}}
+    if date_match:
+        req_match.update(date_match)
+    p1.append({"$match": req_match})
+    p1.append(
+        {"$group": {"_id": "$load_data.carrier_requested_lane", "count": {"$sum": 1}}}
+    )
+    p1.append({"$sort": {"count": -1}})
+    p1.append({"$limit": 20})
+
+    # --- Pipeline 2: booked lanes (separate origin/destination fields) ---
+    p2: list[dict] = []
+    booked_match: dict = {
+        "load_data.origin": {"$ne": None},
+        "load_data.destination": {"$ne": None},
+    }
+    if date_match:
+        booked_match.update(date_match)
+    p2.append({"$match": booked_match})
+    p2.append(
+        {
+            "$group": {
+                "_id": {
+                    "origin": "$load_data.origin",
+                    "destination": "$load_data.destination",
+                },
+                "count": {"$sum": 1},
+            }
+        }
+    )
+    p2.append({"$sort": {"count": -1}})
+    p2.append({"$limit": 20})
+
+    r1 = await db.call_records.aggregate(p1).to_list(length=None)
+    r2 = await db.call_records.aggregate(p2).to_list(length=None)
+
+    arcs: list[GeoArc] = []
+    city_volumes: dict[str, int] = {}
+
+    def _add_volume(city: str, count: int) -> None:
+        city_volumes[city] = city_volumes.get(city, 0) + count
+
+    # Process requested lanes (free-form text -> parse_lane)
+    for row in r1:
+        parsed = parse_lane(row["_id"])
+        if not parsed:
+            continue
+        origin, dest = parsed
+        o_coords = CITY_COORDS[origin]
+        d_coords = CITY_COORDS[dest]
+        arcs.append(
+            GeoArc(
+                origin=origin,
+                origin_lat=o_coords[0],
+                origin_lng=o_coords[1],
+                destination=dest,
+                dest_lat=d_coords[0],
+                dest_lng=d_coords[1],
+                count=row["count"],
+                arc_type="requested",
+            )
+        )
+        _add_volume(origin, row["count"])
+        _add_volume(dest, row["count"])
+
+    # Process booked lanes (separate origin/destination)
+    for row in r2:
+        origin_raw = row["_id"]["origin"]
+        dest_raw = row["_id"]["destination"]
+        origin = resolve_city(origin_raw)
+        dest = resolve_city(dest_raw)
+        if not origin or not dest:
+            continue
+        o_coords = CITY_COORDS[origin]
+        d_coords = CITY_COORDS[dest]
+        arcs.append(
+            GeoArc(
+                origin=origin,
+                origin_lat=o_coords[0],
+                origin_lng=o_coords[1],
+                destination=dest,
+                dest_lat=d_coords[0],
+                dest_lng=d_coords[1],
+                count=row["count"],
+                arc_type="booked",
+            )
+        )
+        _add_volume(origin, row["count"])
+        _add_volume(dest, row["count"])
+
+    cities = [
+        GeoCity(
+            name=name,
+            lat=CITY_COORDS[name][0],
+            lng=CITY_COORDS[name][1],
+            volume=vol,
+        )
+        for name, vol in city_volumes.items()
+    ]
+
+    return GeographyResponse(arcs=arcs, cities=cities)
