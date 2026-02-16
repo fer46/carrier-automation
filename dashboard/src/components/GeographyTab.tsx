@@ -103,10 +103,10 @@ function Disclosure({
 // Lane list row
 // ---------------------------------------------------------------------------
 
-function LaneRow({ arc, maxCount, color }: { arc: GeoArc; maxCount: number; color: 'gray' | 'green' }) {
-  const barBg = color === 'gray' ? 'bg-gray-100' : 'bg-emerald-50';
-  const barFill = color === 'gray' ? 'bg-gray-300' : 'bg-emerald-400';
-  const countColor = color === 'gray' ? 'text-gray-400' : 'text-emerald-500';
+function LaneRow({ arc, maxCount, color }: { arc: GeoArc; maxCount: number; color: 'orange' | 'green' }) {
+  const barBg = color === 'orange' ? 'bg-orange-50' : 'bg-emerald-50';
+  const barFill = color === 'orange' ? 'bg-orange-300' : 'bg-emerald-400';
+  const countColor = color === 'orange' ? 'text-orange-400' : 'text-emerald-500';
   return (
     <div className="py-1.5">
       <div className="flex items-center justify-between text-sm">
@@ -185,7 +185,7 @@ export default function GeographyTab({ data }: Props) {
       <div className="flex items-center gap-5 mb-3">
         <div className="flex items-center gap-1.5">
           <svg width="22" height="6" className="shrink-0">
-            <path d="M0 3 Q11 0 22 3" stroke="#9ca3af" strokeWidth="1.5" fill="none" strokeDasharray="3 2" />
+            <path d="M0 3 Q11 0 22 3" stroke="#f97316" strokeWidth="1.5" fill="none" strokeDasharray="3 2" opacity="0.7" />
           </svg>
           <span className="text-xs text-gray-400">Requested Lanes</span>
         </div>
@@ -240,8 +240,9 @@ export default function GeographyTab({ data }: Props) {
                   arc.dest_lng, arc.dest_lat,
                   curve,
                 )}
-                stroke="#9ca3af"
+                stroke="#f97316"
                 strokeWidth={Math.min(1 + arc.count * 0.2, 2.2)}
+                strokeOpacity={Math.min(0.35 + arc.count * 0.08, 0.75)}
                 strokeDasharray="4 2.5"
                 strokeLinecap="round"
                 fill="none"
@@ -306,9 +307,9 @@ export default function GeographyTab({ data }: Props) {
 
       {/* ─── Summary cards ─── */}
       <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="rounded-lg p-3 bg-white border border-gray-200">
-          <p className="text-2xl font-semibold text-black tabular-nums">{requestedArcs.length}</p>
-          <p className="text-xs text-gray-400 mt-0.5">Requested Lanes</p>
+        <div className="rounded-lg p-3 bg-orange-50/60 border border-orange-200">
+          <p className="text-2xl font-semibold text-orange-700 tabular-nums">{requestedArcs.length}</p>
+          <p className="text-xs text-orange-500/80 mt-0.5">Requested Lanes</p>
         </div>
         <div className="rounded-lg p-3 bg-emerald-50/60 border border-emerald-200">
           <p className="text-2xl font-semibold text-emerald-700 tabular-nums">{bookedArcs.length}</p>
@@ -332,7 +333,7 @@ export default function GeographyTab({ data }: Props) {
           ) : (
             <div className="pt-1">
               {requestedArcs.slice(0, 8).map((arc, i) => (
-                <LaneRow key={i} arc={arc} maxCount={requestedArcs[0].count} color="gray" />
+                <LaneRow key={i} arc={arc} maxCount={requestedArcs[0].count} color="orange" />
               ))}
             </div>
           )}
