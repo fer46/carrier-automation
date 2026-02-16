@@ -240,25 +240,18 @@ async def operations_client():
         call_count += 1
         mock_cursor = AsyncMock()
         if call_count == 1:
+            # Pipeline 1: calls_over_time
             mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": "2024-06-15", "count": 5, "avg_duration": 200.0},
-                {"_id": "2024-06-16", "count": 3, "avg_duration": 300.0},
+                {"_id": "2024-06-15", "count": 5},
+                {"_id": "2024-06-16", "count": 3},
             ])
         elif call_count == 2:
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": "accepted", "count": 7},
-                {"_id": "rejected", "count": 2},
-                {"_id": "transferred_to_sales", "count": 1},
-            ])
-        elif call_count == 3:
+            # Pipeline 2: rejection_reasons
             mock_cursor.to_list = AsyncMock(return_value=[
                 {"_id": "rate_too_high", "count": 2},
             ])
-        elif call_count == 4:
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": None, "total": 10, "transferred": 1},
-            ])
-        elif call_count == 5:
+        elif call_count == 3:
+            # Pipeline 3: conversion funnel
             mock_cursor.to_list = AsyncMock(return_value=[
                 {"_id": "call_started", "count": 100},
                 {"_id": "fmcsa_verified", "count": 90},
@@ -283,10 +276,11 @@ async def test_operations_returns_200(operations_client):
     response = await operations_client.get("/api/analytics/operations")
     assert response.status_code == 200
     data = response.json()
+    assert "outcome_distribution" not in data
+    assert "avg_duration_over_time" not in data
+    assert "transfer_rate" not in data
     assert len(data["calls_over_time"]) == 2
-    assert "accepted" in data["outcome_distribution"]
     assert len(data["rejection_reasons"]) == 1
-    assert data["transfer_rate"] == 10.0
     # Funnel assertions (cumulative: each stage includes records that reached it or later)
     # Raw: call_started=100, fmcsa_verified=90, load_matched=75, offer_pitched=60,
     #       negotiation_entered=45, deal_agreed=30, transferred_to_sales=20
@@ -312,21 +306,16 @@ async def negotiations_analytics_client():
         mock_cursor = AsyncMock()
         if call_count == 1:
             mock_cursor.to_list = AsyncMock(return_value=[{
-                "avg_first_offer": 1900.0,
-                "avg_final_rate": 2000.0,
+                "avg_savings": 150.0,
+                "avg_savings_percent": 7.5,
                 "avg_rounds": 2.1,
             }])
         elif call_count == 2:
-            mock_cursor.to_list = AsyncMock(return_value=[{
-                "_id": None,
-                "carrier_first_offer": 1900.0,
-                "broker_first_counter": 2100.0,
-                "carrier_second_offer": 2000.0,
-                "broker_second_counter": None,
-                "carrier_third_offer": None,
-                "broker_third_counter": None,
-                "final_agreed_rate": 2000.0,
-            }])
+            mock_cursor.to_list = AsyncMock(return_value=[
+                {"_id": "Accepted at First Offer", "count": 3},
+                {"_id": "Negotiated & Agreed", "count": 5},
+                {"_id": "No Deal", "count": 2},
+            ])
         elif call_count == 3:
             mock_cursor.to_list = AsyncMock(return_value=[
                 {"_id": 0, "count": 3},
@@ -352,8 +341,18 @@ async def test_negotiations_returns_200(negotiations_analytics_client):
     response = await negotiations_analytics_client.get("/api/analytics/negotiations")
     assert response.status_code == 200
     data = response.json()
-    assert data["avg_first_offer"] == 1900.0
-    assert data["avg_final_rate"] == 2000.0
+    assert data["avg_savings"] == 150.0
+    assert data["avg_savings_percent"] == 7.5
+    assert "rate_progression" not in data
+    assert "avg_first_offer" not in data
+    outcomes = data["negotiation_outcomes"]
+    assert len(outcomes) == 3
+    assert outcomes[0]["name"] == "Accepted at First Offer"
+    assert outcomes[0]["count"] == 3
+    assert outcomes[1]["name"] == "Negotiated & Agreed"
+    assert outcomes[1]["count"] == 5
+    assert outcomes[2]["name"] == "No Deal"
+    assert outcomes[2]["count"] == 2
     assert len(data["strategy_effectiveness"]) == 1
     assert data["strategy_effectiveness"][0]["acceptance_rate"] == 80.0
 
@@ -422,47 +421,29 @@ async def carriers_client():
         call_count += 1
         mock_cursor = AsyncMock()
         if call_count == 1:
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": "positive", "count": 6},
-                {"_id": "neutral", "count": 3},
-                {"_id": "negative", "count": 1},
-            ])
-        elif call_count == 2:
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": "2024-06-15", "positive": 3, "neutral": 1, "negative": 0},
-            ])
-        elif call_count == 3:
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": "high", "count": 5},
-                {"_id": "medium", "count": 3},
-            ])
-        elif call_count == 4:
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": None, "total": 10, "interested": 7},
-            ])
-        elif call_count == 5:
+            # Pipeline 1: top objections
             mock_cursor.to_list = AsyncMock(return_value=[
                 {"_id": "rate_too_low", "count": 4},
             ])
-        elif call_count == 6:
-            mock_cursor.to_list = AsyncMock(return_value=[
-                {"_id": "Is the rate negotiable?", "count": 3},
-            ])
-        elif call_count == 7:
+        elif call_count == 2:
+            # Pipeline 2: carrier leaderboard
             mock_cursor.to_list = AsyncMock(return_value=[
                 {"_id": 1234, "carrier_name": "TYROLER METALS", "calls": 5, "accepted": 4},
             ])
-        elif call_count == 8:
+        elif call_count == 3:
+            # Pipeline 3: top requested lanes
             mock_cursor.to_list = AsyncMock(return_value=[
                 {"_id": "Chicago, IL → Dallas, TX", "count": 12},
                 {"_id": "Atlanta, GA → Miami, FL", "count": 8},
             ])
-        elif call_count == 9:
+        elif call_count == 4:
+            # Pipeline 4: top actual lanes
             mock_cursor.to_list = AsyncMock(return_value=[
                 {"_id": "Chicago, IL → Dallas, TX", "count": 10},
                 {"_id": "LA, CA → Phoenix, AZ", "count": 6},
             ])
-        elif call_count == 10:
+        elif call_count == 5:
+            # Pipeline 5: equipment distribution
             mock_cursor.to_list = AsyncMock(return_value=[
                 {"_id": "Dry Van", "count": 15},
                 {"_id": "Reefer", "count": 8},
@@ -483,8 +464,10 @@ async def test_carriers_returns_200(carriers_client):
     response = await carriers_client.get("/api/analytics/carriers")
     assert response.status_code == 200
     data = response.json()
-    assert data["sentiment_distribution"]["positive"] == 6
-    assert data["future_interest_rate"] == 70.0
+    assert "sentiment_distribution" not in data
+    assert "future_interest_rate" not in data
+    assert "engagement_levels" not in data
+    assert "top_questions" not in data
     assert len(data["top_objections"]) == 1
     assert len(data["carrier_leaderboard"]) == 1
     assert data["carrier_leaderboard"][0]["acceptance_rate"] == 80.0

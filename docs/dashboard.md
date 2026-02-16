@@ -42,9 +42,9 @@ All endpoints require an `X-API-Key` header. The key is configured via the `API_
 |--------|------|-------------|
 | POST | `/api/analytics/calls` | Ingest a call record |
 | GET | `/api/analytics/summary` | Hero KPI metrics |
-| GET | `/api/analytics/operations` | Call volume, outcomes, funnel |
-| GET | `/api/analytics/negotiations` | Rate progression, margins, strategies |
-| GET | `/api/analytics/carriers` | Sentiment, lanes, equipment, leaderboard |
+| GET | `/api/analytics/operations` | Call volume, funnel, rejection reasons |
+| GET | `/api/analytics/negotiations` | Negotiation savings, outcomes, margins |
+| GET | `/api/analytics/carriers` | Objections, lanes, equipment, leaderboard |
 
 All GET endpoints accept optional `from` and `to` query parameters (ISO date strings, e.g. `?from=2026-01-01&to=2026-01-31`). Dates filter on the `ingested_at` field (server timestamp when the record was first created).
 
@@ -60,11 +60,12 @@ All GET endpoints accept optional `from` and `to` query parameters (ISO date str
 
 ### Hero KPI Row
 
-Seven cards displayed in a responsive grid (2 cols mobile, 3 tablet, 4 desktop):
+Eight cards displayed in a responsive grid (2 cols mobile, 3 tablet, 4 desktop):
 
 | Card | Description | Format |
 |------|-------------|--------|
 | Total Calls | Count of calls in the date range | Integer |
+| Avg Call Duration | Average call length | Duration (Xm Ys) |
 | Acceptance Rate | % of calls resulting in acceptance | Percentage |
 | Booked Revenue | Sum of `final_agreed_rate` for accepted calls | Dollar |
 | Margin Earned | Sum of `(loadboard_rate - final_agreed_rate)` for accepted calls | Dollar |
@@ -104,17 +105,9 @@ The final stage bar is colored green; all others are blue.
 
 Area chart showing daily call counts over the selected date range.
 
-### Outcome Distribution
-
-Donut chart breaking down calls by outcome (accepted, rejected, transferred, etc.) with percentage labels.
-
 ### Rejection Reasons
 
 Horizontal bar chart ranking the top 10 rejection reasons by frequency.
-
-### Avg Call Duration Over Time
-
-Line chart showing daily average call duration (displayed in minutes).
 
 ---
 
@@ -124,15 +117,21 @@ Analyzes rate negotiation patterns and margin performance.
 
 ### Summary Stats
 
-Three headline cards: **Avg First Offer**, **Avg Final Rate**, **Avg Rounds**.
+Three headline cards:
 
-### Rate Progression
+- **Avg Savings / Deal** -- average dollar amount saved per negotiation (carrier's first offer minus final agreed rate), computed per-deal to avoid sample bias.
+- **Avg Savings %** -- average savings as a percentage of the carrier's first offer, normalized across load sizes.
+- **Avg Rounds** -- average number of back-and-forth exchanges per call.
 
-Line chart showing how the average rate evolves across negotiation rounds:
+### Negotiation Outcomes
 
-Carrier First Offer -> Broker First Counter -> Carrier Second Offer -> Broker Second Counter -> Carrier Third Offer -> Broker Third Counter -> Final Agreed Rate
+Donut chart breaking down all calls into three categories:
 
-Only rounds with data are shown (calls that settled in fewer rounds won't have later-round values).
+- **Accepted at First Offer** -- carrier accepted without negotiation rounds (green).
+- **Negotiated & Agreed** -- carrier accepted after one or more negotiation rounds (blue).
+- **No Deal** -- call ended in rejection or transfer to sales (red).
+
+Each slice shows a percentage label.
 
 ### Margin Distribution
 
@@ -148,41 +147,25 @@ margin_percent = ((loadboard_rate - final_agreed_rate) / loadboard_rate) * 100
 - `final_agreed_rate`: the rate the carrier accepted
 - A positive margin means the carrier accepted below the posted rate
 
-### Strategy Effectiveness
-
-Table comparing negotiation strategies (e.g. "anchoring_high") by acceptance rate, average rounds, and usage count. Rows are color-coded: green (>= 70% acceptance), amber (>= 50%), red (< 50%).
-
 ---
 
 ## Carriers Tab
 
-Focuses on carrier behavior, sentiment, and lane preferences.
-
-### Sentiment Over Time
-
-Stacked area chart showing daily counts of positive, neutral, and negative sentiment calls.
-
-### Engagement Levels
-
-Donut chart showing the distribution of carrier engagement (high, medium, low).
-
-### Top Carrier Objections
-
-Horizontal bar chart ranking the most common objections raised by carriers (e.g. "rate_too_low").
+Shows carrier behavior patterns and market intelligence.
 
 ### Lane Intelligence
 
 Three-column section showing:
 
 - **Top Requested Lanes**: lanes carriers asked about (`carrier_requested_lane` field), ranked by frequency
-- **Top Actual Lanes**: lanes that were actually discussed, formatted as "Origin -> Destination", ranked by frequency
+- **Top Actual Lanes**: lanes that were actually discussed, formatted as "Origin → Destination", ranked by frequency
 - **Equipment Types**: donut chart showing equipment type distribution (Dry Van, Reefer, Flatbed, etc.)
 
 Comparing requested vs. actual lanes reveals mismatches between carrier preferences and available loads.
 
-### Future Interest Rate
+### Top Carrier Objections
 
-Large headline number showing what percentage of carriers expressed willingness to take future loads.
+Horizontal bar chart ranking the most common objections raised by carriers (e.g. "rate_too_low").
 
 ### Carrier Leaderboard
 
@@ -291,6 +274,8 @@ Every chart gracefully handles missing data with contextual messages rather than
 - No funnel data: "No funnel data yet"
 - No rejections: "No rejections recorded"
 - No lane data: "No lane data yet"
+- No equipment data: "No equipment data yet"
+- No objections: "No objections recorded"
 - Generic: "No data available"
 
 ---
@@ -300,10 +285,10 @@ Every chart gracefully handles missing data with contextual messages rather than
 | Metric | Formula | Notes |
 |--------|---------|-------|
 | Acceptance Rate | `(accepted_calls / total_calls) * 100` | Percentage |
+| Avg Savings | `AVG(carrier_first_offer - final_agreed_rate)` | Per-deal, requires both rates non-null |
+| Avg Savings % | `AVG((carrier_first_offer - final_agreed_rate) / carrier_first_offer * 100)` | Per-deal percentage |
 | Margin % | `((loadboard_rate - final_agreed_rate) / loadboard_rate) * 100` | Per-call, then averaged |
 | Booked Revenue | `SUM(final_agreed_rate)` where outcome = accepted | Dollar total |
 | Margin Earned | `SUM(loadboard_rate - final_agreed_rate)` where accepted + both rates exist | Dollar total |
 | Rate/Mile | `AVG(final_agreed_rate / miles)` where miles > 0 | Dollar per mile |
-| Transfer Rate | `(transferred_to_sales / total_calls) * 100` | Percentage |
-| Future Interest | `(interested_carriers / total_carriers) * 100` | Percentage |
 | Funnel Drop-off | `(1 - stage_count / first_stage_count) * 100` | Per stage |

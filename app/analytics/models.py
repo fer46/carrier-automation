@@ -137,11 +137,6 @@ class TimeSeriesPoint(BaseModel):
     count: int = 0
 
 
-class DurationTimeSeriesPoint(BaseModel):
-    date: str
-    avg_duration: float = 0.0
-
-
 class ReasonCount(BaseModel):
     reason: str
     count: int
@@ -155,16 +150,13 @@ class FunnelStage(BaseModel):
 
 class OperationsResponse(BaseModel):
     calls_over_time: list[TimeSeriesPoint]
-    outcome_distribution: dict[str, int]
-    avg_duration_over_time: list[DurationTimeSeriesPoint]
     rejection_reasons: list[ReasonCount]
-    transfer_rate: float
     funnel: list[FunnelStage]
 
 
-class RateProgressionPoint(BaseModel):
-    round: str
-    avg_rate: float
+class NegotiationOutcome(BaseModel):
+    name: str
+    count: int
 
 
 class MarginBucket(BaseModel):
@@ -180,10 +172,10 @@ class StrategyRow(BaseModel):
 
 
 class NegotiationsResponse(BaseModel):
-    avg_first_offer: float
-    avg_final_rate: float
+    avg_savings: float
+    avg_savings_percent: float
     avg_rounds: float
-    rate_progression: list[RateProgressionPoint]
+    negotiation_outcomes: list[NegotiationOutcome]
     margin_distribution: list[MarginBucket]
     strategy_effectiveness: list[StrategyRow]
 
@@ -213,11 +205,6 @@ class ObjectionCount(BaseModel):
     count: int
 
 
-class QuestionCount(BaseModel):
-    question: str
-    count: int
-
-
 class CarrierLeaderboardRow(BaseModel):
     carrier_name: str
     mc_number: int
@@ -236,12 +223,7 @@ class EquipmentCount(BaseModel):
 
 
 class CarriersResponse(BaseModel):
-    sentiment_distribution: dict[str, int]
-    sentiment_over_time: list[dict]
-    engagement_levels: dict[str, int]
-    future_interest_rate: float
     top_objections: list[ObjectionCount]
-    top_questions: list[QuestionCount]
     carrier_leaderboard: list[CarrierLeaderboardRow]
     top_requested_lanes: list[LaneCount]
     top_actual_lanes: list[LaneCount]

@@ -127,6 +127,7 @@ export default function App() {
           // Responsive breakpoints: 2 cols (mobile) -> 3 cols (tablet) -> 4 cols (desktop).
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
             <KPICard label="Total Calls" value={summary.total_calls} color="blue" />
+            <KPICard label="Avg Call Duration" value={summary.avg_call_duration} format="duration" color="slate" />
             <KPICard label="Acceptance Rate" value={summary.acceptance_rate} format="percent" color="green" />
             <KPICard label="Booked Revenue" value={summary.total_booked_revenue} format="dollar" color="green" />
             <KPICard label="Margin Earned" value={summary.total_margin_earned} format="dollar" color="green" />
