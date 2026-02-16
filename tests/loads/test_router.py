@@ -14,7 +14,8 @@ async def test_search_loads_returns_200(client):
 
 
 async def test_search_loads_filters_by_origin(client):
-    response = await client.get("/api/loads/search", params={"validation_check": "VALID", "origin": "Dallas"})
+    params = {"validation_check": "VALID", "origin": "Dallas"}
+    response = await client.get("/api/loads/search", params=params)
     assert response.status_code == 200
     data = response.json()
     for load in data["loads"]:

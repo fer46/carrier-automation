@@ -41,19 +41,13 @@ export interface SummaryData {
 
 // ---------------------------------------------------------------------------
 // 2. Operations -- /api/analytics/operations
-//    Charts: call volume over time, outcome pie, rejection bar, duration line.
+//    Charts: call volume over time, rejection bar, conversion funnel.
 // ---------------------------------------------------------------------------
 
 /** A single date-bucketed count used for the call-volume area chart. */
 export interface TimeSeriesPoint {
   date: string;   // ISO date string, e.g. "2025-01-15"
   count: number;
-}
-
-/** A single date-bucketed average duration used for the duration line chart. */
-export interface DurationTimeSeriesPoint {
-  date: string;         // ISO date string
-  avg_duration: number; // seconds
 }
 
 /** A labelled count for a specific rejection reason (horizontal bar chart). */
@@ -73,27 +67,21 @@ export interface FunnelStage {
 export interface OperationsData {
   /** Daily call counts for the area chart. */
   calls_over_time: TimeSeriesPoint[];
-  /** Outcome label -> count mapping for the donut/pie chart (e.g. "accepted": 42). */
-  outcome_distribution: Record<string, number>;
-  /** Daily average call duration for the line chart. */
-  avg_duration_over_time: DurationTimeSeriesPoint[];
   /** Top rejection reasons and their counts for the horizontal bar chart. */
   rejection_reasons: ReasonCount[];
-  /** Percentage of calls transferred to a human agent. */
-  transfer_rate: number;
   /** Conversion funnel from call_started through transferred_to_sales. */
   funnel: FunnelStage[];
 }
 
 // ---------------------------------------------------------------------------
 // 3. Negotiations -- /api/analytics/negotiations
-//    Charts: rate progression line, margin bar, strategy effectiveness table.
+//    Charts: negotiation outcomes donut, margin bar, strategy effectiveness table.
 // ---------------------------------------------------------------------------
 
-/** Average carrier rate at a specific negotiation round/stage (e.g. "Round 1"). */
-export interface RateProgressionPoint {
-  round: string;    // label like "Initial Offer", "Round 1", "Final"
-  avg_rate: number; // dollar amount
+/** A single outcome category for the negotiation outcomes donut chart. */
+export interface NegotiationOutcome {
+  name: string;   // "Accepted at First Offer", "Negotiated & Agreed", or "No Deal"
+  count: number;
 }
 
 /** A histogram bucket for profit margin distribution (e.g. "5-10%"). */
@@ -112,11 +100,11 @@ export interface StrategyRow {
 
 /** Aggregated negotiation metrics for the Negotiations tab. */
 export interface NegotiationsData {
-  avg_first_offer: number;  // average initial carrier rate offer ($)
-  avg_final_rate: number;   // average accepted/final rate ($)
-  avg_rounds: number;       // average negotiation rounds across all calls
-  /** How the average rate changes through negotiation rounds. */
-  rate_progression: RateProgressionPoint[];
+  avg_savings: number;          // average per-deal savings (carrier_first_offer - final_agreed_rate)
+  avg_savings_percent: number;  // average savings as percentage of carrier's first offer (0-100)
+  avg_rounds: number;           // average negotiation rounds across all calls
+  /** Breakdown of call outcomes: first-offer acceptance, negotiated deals, no deals. */
+  negotiation_outcomes: NegotiationOutcome[];
   /** Distribution of profit margins across completed negotiations. */
   margin_distribution: MarginBucket[];
   /** Comparison of different negotiation strategies. */
@@ -134,26 +122,12 @@ export interface ObjectionCount {
   count: number;
 }
 
-/** A labelled count for a specific carrier question. */
-export interface QuestionCount {
-  question: string;
-  count: number;
-}
-
 /** One row in the carrier leaderboard ranking table. */
 export interface CarrierLeaderboardRow {
   carrier_name: string;    // display name
   mc_number: number;       // FMCSA Motor Carrier number (unique identifier)
   calls: number;           // total calls with this carrier
   acceptance_rate: number; // percentage of calls that ended in acceptance (0-100)
-}
-
-/** A date-bucketed breakdown of carrier sentiment (stacked area chart). */
-export interface SentimentTimePoint {
-  date: string;
-  positive: number; // count of positive-sentiment calls
-  neutral: number;
-  negative: number;
 }
 
 /** A lane with its occurrence count (used for requested and actual lane rankings). */
@@ -170,18 +144,8 @@ export interface EquipmentCount {
 
 /** Aggregated carrier-focused metrics for the Carriers tab. */
 export interface CarriersData {
-  /** Sentiment label -> count mapping for overall distribution. */
-  sentiment_distribution: Record<string, number>;
-  /** Daily sentiment breakdown for the stacked area chart. */
-  sentiment_over_time: SentimentTimePoint[];
-  /** Engagement level label -> count (e.g. "high": 30, "medium": 45). */
-  engagement_levels: Record<string, number>;
-  /** Percentage of carriers who expressed interest in future loads (0-100). */
-  future_interest_rate: number;
   /** Most common objections raised by carriers, sorted by count descending. */
   top_objections: ObjectionCount[];
-  /** Most common questions asked by carriers, sorted by count descending. */
-  top_questions: QuestionCount[];
   /** Top carriers ranked by acceptance rate (used in the leaderboard table). */
   carrier_leaderboard: CarrierLeaderboardRow[];
   /** Top lanes requested by carriers. */
@@ -190,4 +154,32 @@ export interface CarriersData {
   top_actual_lanes: LaneCount[];
   /** Equipment type distribution across calls. */
   equipment_distribution: EquipmentCount[];
+}
+
+// ---------------------------------------------------------------------------
+// 6. Geography -- /api/analytics/geography
+//    Arc map showing requested vs booked lanes across US cities.
+// ---------------------------------------------------------------------------
+
+export interface GeoCity {
+  name: string;
+  lat: number;
+  lng: number;
+  volume: number;
+}
+
+export interface GeoArc {
+  origin: string;
+  origin_lat: number;
+  origin_lng: number;
+  destination: string;
+  dest_lat: number;
+  dest_lng: number;
+  count: number;
+  arc_type: 'requested' | 'booked';
+}
+
+export interface GeographyData {
+  arcs: GeoArc[];
+  cities: GeoCity[];
 }

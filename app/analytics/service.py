@@ -1,21 +1,23 @@
-from datetime import datetime, time, timezone
+from datetime import UTC, datetime, time
 from typing import Optional
 
+from app.analytics.lane_parser import CITY_COORDS, parse_lane, resolve_city
 from app.analytics.models import (
     AIQualityResponse,
     CarrierLeaderboardRow,
     CarriersResponse,
-    DurationTimeSeriesPoint,
     EquipmentCount,
     FunnelStage,
+    GeoArc,
+    GeoCity,
+    GeographyResponse,
     InterruptionTimeSeriesPoint,
     LaneCount,
     MarginBucket,
+    NegotiationOutcome,
     NegotiationsResponse,
     ObjectionCount,
     OperationsResponse,
-    QuestionCount,
-    RateProgressionPoint,
     ReasonCount,
     StrategyRow,
     SummaryResponse,
@@ -25,9 +27,7 @@ from app.analytics.models import (
 from app.database import get_database
 
 
-def _build_date_match(
-    date_from: Optional[str] = None, date_to: Optional[str] = None
-) -> dict:
+def _build_date_match(date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
     match: dict = {}
     if date_from or date_to:
         date_filter: dict = {}
@@ -52,7 +52,7 @@ async def ingest_call_record(record: dict) -> str:
         {"system.call_id": call_id},
         {
             "$set": record,
-            "$setOnInsert": {"ingested_at": datetime.now(tz=timezone.utc)},
+            "$setOnInsert": {"ingested_at": datetime.now(tz=UTC)},
         },
         upsert=True,
     )
@@ -95,9 +95,7 @@ async def get_summary(
                     }
                 },
                 "avg_duration": {"$avg": "$system.call_duration"},
-                "avg_rounds": {
-                    "$avg": "$transcript_extraction.negotiation.negotiation_rounds"
-                },
+                "avg_rounds": {"$avg": "$transcript_extraction.negotiation.negotiation_rounds"},
                 "avg_margin": {
                     "$avg": {
                         "$cond": [
@@ -221,9 +219,7 @@ async def get_summary(
                         ]
                     }
                 },
-                "unique_carriers": {
-                    "$addToSet": "$fmcsa_data.carrier_mc_number"
-                },
+                "unique_carriers": {"$addToSet": "$fmcsa_data.carrier_mc_number"},
             }
         }
     )
@@ -284,33 +280,17 @@ async def get_operations(
                     }
                 },
                 "count": {"$sum": 1},
-                "avg_duration": {"$avg": "$system.call_duration"},
             }
         }
     )
 
-    # --- Pipeline 2: outcome_distribution ---
+    # --- Pipeline 2: rejection_reasons ---
     p2: list[dict] = []
-    if date_match:
-        p2.append({"$match": date_match})
-    p2.append(
-        {
-            "$group": {
-                "_id": "$transcript_extraction.outcome.call_outcome",
-                "count": {"$sum": 1},
-            }
-        }
-    )
-
-    # --- Pipeline 3: rejection_reasons ---
-    p3: list[dict] = []
-    rejection_match: dict = {
-        "transcript_extraction.outcome.rejection_reason": {"$ne": None}
-    }
+    rejection_match: dict = {"transcript_extraction.outcome.rejection_reason": {"$ne": None}}
     if date_match:
         rejection_match.update(date_match)
-    p3.append({"$match": rejection_match})
-    p3.append(
+    p2.append({"$match": rejection_match})
+    p2.append(
         {
             "$group": {
                 "_id": "$transcript_extraction.outcome.rejection_reason",
@@ -318,45 +298,16 @@ async def get_operations(
             }
         }
     )
-    p3.append({"$sort": {"count": -1}})
-    p3.append({"$limit": 10})
+    p2.append({"$sort": {"count": -1}})
+    p2.append({"$limit": 10})
 
-    # --- Pipeline 4: transfer_rate ---
-    p4: list[dict] = []
-    if date_match:
-        p4.append({"$match": date_match})
-    p4.append(
-        {
-            "$group": {
-                "_id": None,
-                "total": {"$sum": 1},
-                "transferred": {
-                    "$sum": {
-                        "$cond": [
-                            {
-                                "$eq": [
-                                    "$transcript_extraction.operational.transfer_to_sales_completed",
-                                    True,
-                                ]
-                            },
-                            1,
-                            0,
-                        ]
-                    }
-                },
-            }
-        }
-    )
-
-    # --- Pipeline 5: conversion funnel ---
-    p5: list[dict] = []
-    funnel_match: dict = {
-        "transcript_extraction.outcome.funnel_stage_reached": {"$ne": None}
-    }
+    # --- Pipeline 3: conversion funnel ---
+    p3: list[dict] = []
+    funnel_match: dict = {"transcript_extraction.outcome.funnel_stage_reached": {"$ne": None}}
     if date_match:
         funnel_match.update(date_match)
-    p5.append({"$match": funnel_match})
-    p5.append(
+    p3.append({"$match": funnel_match})
+    p3.append(
         {
             "$group": {
                 "_id": "$transcript_extraction.outcome.funnel_stage_reached",
@@ -368,26 +319,9 @@ async def get_operations(
     r1 = await db.call_records.aggregate(p1).to_list(length=None)
     r2 = await db.call_records.aggregate(p2).to_list(length=None)
     r3 = await db.call_records.aggregate(p3).to_list(length=None)
-    r4 = await db.call_records.aggregate(p4).to_list(length=1)
-    r5 = await db.call_records.aggregate(p5).to_list(length=None)
 
-    calls_over_time = [
-        TimeSeriesPoint(date=row["_id"], count=row["count"]) for row in r1
-    ]
-    avg_duration_over_time = [
-        DurationTimeSeriesPoint(date=row["_id"], avg_duration=round(row["avg_duration"], 1))
-        for row in r1
-    ]
-    outcome_distribution = {row["_id"]: row["count"] for row in r2}
-    rejection_reasons = [
-        ReasonCount(reason=row["_id"], count=row["count"]) for row in r3
-    ]
-
-    transfer_rate = 0.0
-    if r4:
-        total = r4[0]["total"]
-        transferred = r4[0]["transferred"]
-        transfer_rate = round(transferred / total * 100, 1) if total else 0.0
+    calls_over_time = [TimeSeriesPoint(date=row["_id"], count=row["count"]) for row in r1]
+    rejection_reasons = [ReasonCount(reason=row["_id"], count=row["count"]) for row in r2]
 
     # Build funnel with cumulative counts (each stage includes all records
     # that passed through it, i.e. records at later stages count toward
@@ -401,7 +335,7 @@ async def get_operations(
         "deal_agreed",
         "transferred_to_sales",
     ]
-    stage_counts_raw = {row["_id"]: row["count"] for row in r5}
+    stage_counts_raw = {row["_id"]: row["count"] for row in r3}
 
     # Cumulative: a record that reached stage N also passed through stages 0..N-1.
     # Accumulate from bottom up.
@@ -427,10 +361,7 @@ async def get_operations(
 
     return OperationsResponse(
         calls_over_time=calls_over_time,
-        outcome_distribution=outcome_distribution,
-        avg_duration_over_time=avg_duration_over_time,
         rejection_reasons=rejection_reasons,
-        transfer_rate=transfer_rate,
         funnel=funnel,
     )
 
@@ -446,9 +377,12 @@ async def get_negotiations(
     db = get_database()
     date_match = _build_date_match(date_from, date_to)
 
-    # --- Pipeline 1: rate averages ---
+    # --- Pipeline 1: negotiation savings ---
     p1: list[dict] = []
-    rate_match: dict = {"transcript_extraction.negotiation.carrier_first_offer": {"$ne": None}}
+    rate_match: dict = {
+        "transcript_extraction.negotiation.carrier_first_offer": {"$ne": None},
+        "transcript_extraction.negotiation.final_agreed_rate": {"$ne": None},
+    }
     if date_match:
         rate_match.update(date_match)
     p1.append({"$match": rate_match})
@@ -456,36 +390,93 @@ async def get_negotiations(
         {
             "$group": {
                 "_id": None,
-                "avg_first_offer": {
-                    "$avg": "$transcript_extraction.negotiation.carrier_first_offer"
+                "avg_savings": {
+                    "$avg": {
+                        "$subtract": [
+                            "$transcript_extraction.negotiation.carrier_first_offer",
+                            "$transcript_extraction.negotiation.final_agreed_rate",
+                        ]
+                    }
                 },
-                "avg_final_rate": {
-                    "$avg": "$transcript_extraction.negotiation.final_agreed_rate"
+                "avg_savings_percent": {
+                    "$avg": {
+                        "$cond": [
+                            {
+                                "$gt": [
+                                    "$transcript_extraction.negotiation.carrier_first_offer",
+                                    0,
+                                ]
+                            },
+                            {
+                                "$multiply": [
+                                    {
+                                        "$divide": [
+                                            {
+                                                "$subtract": [
+                                                    "$transcript_extraction.negotiation.carrier_first_offer",
+                                                    "$transcript_extraction.negotiation.final_agreed_rate",
+                                                ]
+                                            },
+                                            "$transcript_extraction.negotiation.carrier_first_offer",
+                                        ]
+                                    },
+                                    100,
+                                ]
+                            },
+                            0,
+                        ]
+                    }
                 },
-                "avg_rounds": {
-                    "$avg": "$transcript_extraction.negotiation.negotiation_rounds"
-                },
+                "avg_rounds": {"$avg": "$transcript_extraction.negotiation.negotiation_rounds"},
             }
         }
     )
 
-    # --- Pipeline 2: rate progression ---
-    rate_fields = [
-        "carrier_first_offer",
-        "broker_first_counter",
-        "carrier_second_offer",
-        "broker_second_counter",
-        "carrier_third_offer",
-        "broker_third_counter",
-        "final_agreed_rate",
-    ]
+    # --- Pipeline 2: negotiation outcomes ---
     p2: list[dict] = []
     if date_match:
         p2.append({"$match": date_match})
-    group_stage: dict = {"_id": None}
-    for field in rate_fields:
-        group_stage[field] = {"$avg": f"$transcript_extraction.negotiation.{field}"}
-    p2.append({"$group": group_stage})
+    p2.append(
+        {
+            "$addFields": {
+                "outcome_category": {
+                    "$switch": {
+                        "branches": [
+                            {
+                                "case": {
+                                    "$not": [
+                                        {
+                                            "$eq": [
+                                                "$transcript_extraction.outcome.call_outcome",
+                                                "accepted",
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "then": "No Deal",
+                            },
+                            {
+                                "case": {
+                                    "$gt": [
+                                        {
+                                            "$ifNull": [
+                                                "$transcript_extraction.negotiation.negotiation_rounds",
+                                                0,
+                                            ]
+                                        },
+                                        0,
+                                    ]
+                                },
+                                "then": "Negotiated & Agreed",
+                            },
+                        ],
+                        "default": "Accepted at First Offer",
+                    }
+                }
+            }
+        }
+    )
+    p2.append({"$group": {"_id": "$outcome_category", "count": {"$sum": 1}}})
 
     # --- Pipeline 3: margin distribution ---
     p3: list[dict] = []
@@ -556,38 +547,31 @@ async def get_negotiations(
                         ]
                     }
                 },
-                "avg_rounds": {
-                    "$avg": "$transcript_extraction.negotiation.negotiation_rounds"
-                },
+                "avg_rounds": {"$avg": "$transcript_extraction.negotiation.negotiation_rounds"},
             }
         }
     )
 
     r1 = await db.call_records.aggregate(p1).to_list(length=1)
-    r2 = await db.call_records.aggregate(p2).to_list(length=1)
+    r2 = await db.call_records.aggregate(p2).to_list(length=None)
     r3 = await db.call_records.aggregate(p3).to_list(length=None)
     r4 = await db.call_records.aggregate(p4).to_list(length=None)
 
-    # Rate averages
-    avg_first_offer = 0.0
-    avg_final_rate = 0.0
+    # Negotiation savings
+    avg_savings = 0.0
+    avg_savings_percent = 0.0
     avg_rounds = 0.0
     if r1:
-        avg_first_offer = round(r1[0].get("avg_first_offer") or 0.0, 2)
-        avg_final_rate = round(r1[0].get("avg_final_rate") or 0.0, 2)
+        avg_savings = round(r1[0].get("avg_savings") or 0.0, 2)
+        avg_savings_percent = round(r1[0].get("avg_savings_percent") or 0.0, 1)
         avg_rounds = round(r1[0].get("avg_rounds") or 0.0, 1)
 
-    # Rate progression
-    rate_progression: list[RateProgressionPoint] = []
-    if r2:
-        row = r2[0]
-        for field in rate_fields:
-            val = row.get(field)
-            if val is not None:
-                label = field.replace("_", " ").title()
-                rate_progression.append(
-                    RateProgressionPoint(round=label, avg_rate=round(val, 2))
-                )
+    # Negotiation outcomes
+    outcome_map = {row["_id"]: row["count"] for row in r2}
+    all_categories = ["Accepted at First Offer", "Negotiated & Agreed", "No Deal"]
+    negotiation_outcomes = [
+        NegotiationOutcome(name=cat, count=outcome_map.get(cat, 0)) for cat in all_categories
+    ]
 
     # Margin distribution
     bucket_labels = {-100: "<0%", 0: "0-5%", 5: "5-10%", 10: "10-15%", 15: "15-20%", 20: "20%+"}
@@ -600,7 +584,9 @@ async def get_negotiations(
     strategy_effectiveness = [
         StrategyRow(
             strategy=row["_id"],
-            acceptance_rate=round(row["accepted"] / row["total"] * 100, 1) if row["total"] else 0.0,
+            acceptance_rate=(
+                round(row["accepted"] / row["total"] * 100, 1) if row["total"] else 0.0
+            ),
             avg_rounds=round(row["avg_rounds"] or 0.0, 1),
             count=row["total"],
         )
@@ -608,10 +594,10 @@ async def get_negotiations(
     ]
 
     return NegotiationsResponse(
-        avg_first_offer=avg_first_offer,
-        avg_final_rate=avg_final_rate,
+        avg_savings=avg_savings,
+        avg_savings_percent=avg_savings_percent,
         avg_rounds=avg_rounds,
-        rate_progression=rate_progression,
+        negotiation_outcomes=negotiation_outcomes,
         margin_distribution=margin_distribution,
         strategy_effectiveness=strategy_effectiveness,
     )
@@ -715,9 +701,7 @@ async def get_ai_quality(
                         "date": "$ingested_at",
                     }
                 },
-                "avg": {
-                    "$avg": "$transcript_extraction.conversation.ai_interruptions_count"
-                },
+                "avg": {"$avg": "$transcript_extraction.conversation.ai_interruptions_count"},
             }
         }
     )
@@ -750,21 +734,16 @@ async def get_ai_quality(
         total = row["total"]
         if total:
             compliance_rate = round(row["compliant"] / total * 100, 1)
-            transcription_error_rate = round(
-                row["transcription_errors"] / total * 100, 1
-            )
+            transcription_error_rate = round(row["transcription_errors"] / total * 100, 1)
             carrier_repeat_rate = round(row["carrier_repeats"] / total * 100, 1)
         avg_interruptions = round(row["avg_interruptions"] or 0.0, 1)
 
     # Common violations
-    common_violations = [
-        ViolationCount(violation=row["_id"], count=row["count"]) for row in r2
-    ]
+    common_violations = [ViolationCount(violation=row["_id"], count=row["count"]) for row in r2]
 
     # Interruptions over time
     interruptions_over_time = [
-        InterruptionTimeSeriesPoint(date=row["_id"], avg=round(row["avg"], 1))
-        for row in r3
+        InterruptionTimeSeriesPoint(date=row["_id"], avg=round(row["avg"], 1)) for row in r3
     ]
 
     # Tone distribution
@@ -792,124 +771,12 @@ async def get_carriers(
     db = get_database()
     date_match = _build_date_match(date_from, date_to)
 
-    # --- Pipeline 1: sentiment distribution ---
+    # --- Pipeline 1: top objections ---
     p1: list[dict] = []
     if date_match:
         p1.append({"$match": date_match})
+    p1.append({"$unwind": "$transcript_extraction.optional.carrier_objections"})
     p1.append(
-        {
-            "$group": {
-                "_id": "$transcript_extraction.sentiment.call_sentiment",
-                "count": {"$sum": 1},
-            }
-        }
-    )
-
-    # --- Pipeline 2: sentiment over time ---
-    p2: list[dict] = []
-    if date_match:
-        p2.append({"$match": date_match})
-    p2.append(
-        {
-            "$group": {
-                "_id": {
-                    "$dateToString": {
-                        "format": "%Y-%m-%d",
-                        "date": "$ingested_at",
-                    }
-                },
-                "positive": {
-                    "$sum": {
-                        "$cond": [
-                            {
-                                "$eq": [
-                                    "$transcript_extraction.sentiment.call_sentiment",
-                                    "positive",
-                                ]
-                            },
-                            1,
-                            0,
-                        ]
-                    }
-                },
-                "neutral": {
-                    "$sum": {
-                        "$cond": [
-                            {
-                                "$eq": [
-                                    "$transcript_extraction.sentiment.call_sentiment",
-                                    "neutral",
-                                ]
-                            },
-                            1,
-                            0,
-                        ]
-                    }
-                },
-                "negative": {
-                    "$sum": {
-                        "$cond": [
-                            {
-                                "$eq": [
-                                    "$transcript_extraction.sentiment.call_sentiment",
-                                    "negative",
-                                ]
-                            },
-                            1,
-                            0,
-                        ]
-                    }
-                },
-            }
-        }
-    )
-
-    # --- Pipeline 3: engagement levels ---
-    p3: list[dict] = []
-    if date_match:
-        p3.append({"$match": date_match})
-    p3.append(
-        {
-            "$group": {
-                "_id": "$transcript_extraction.sentiment.engagement_level",
-                "count": {"$sum": 1},
-            }
-        }
-    )
-
-    # --- Pipeline 4: future interest rate ---
-    p4: list[dict] = []
-    if date_match:
-        p4.append({"$match": date_match})
-    p4.append(
-        {
-            "$group": {
-                "_id": None,
-                "total": {"$sum": 1},
-                "interested": {
-                    "$sum": {
-                        "$cond": [
-                            {
-                                "$eq": [
-                                    "$transcript_extraction.sentiment.carrier_expressed_interest_future",
-                                    True,
-                                ]
-                            },
-                            1,
-                            0,
-                        ]
-                    }
-                },
-            }
-        }
-    )
-
-    # --- Pipeline 5: top objections ---
-    p5: list[dict] = []
-    if date_match:
-        p5.append({"$match": date_match})
-    p5.append({"$unwind": "$transcript_extraction.optional.carrier_objections"})
-    p5.append(
         {
             "$group": {
                 "_id": "$transcript_extraction.optional.carrier_objections",
@@ -917,30 +784,14 @@ async def get_carriers(
             }
         }
     )
-    p5.append({"$sort": {"count": -1}})
-    p5.append({"$limit": 10})
+    p1.append({"$sort": {"count": -1}})
+    p1.append({"$limit": 10})
 
-    # --- Pipeline 6: top questions ---
-    p6: list[dict] = []
+    # --- Pipeline 2: carrier leaderboard ---
+    p2: list[dict] = []
     if date_match:
-        p6.append({"$match": date_match})
-    p6.append({"$unwind": "$transcript_extraction.optional.carrier_questions_asked"})
-    p6.append(
-        {
-            "$group": {
-                "_id": "$transcript_extraction.optional.carrier_questions_asked",
-                "count": {"$sum": 1},
-            }
-        }
-    )
-    p6.append({"$sort": {"count": -1}})
-    p6.append({"$limit": 10})
-
-    # --- Pipeline 7: carrier leaderboard ---
-    p7: list[dict] = []
-    if date_match:
-        p7.append({"$match": date_match})
-    p7.append(
+        p2.append({"$match": date_match})
+    p2.append(
         {
             "$group": {
                 "_id": "$fmcsa_data.carrier_mc_number",
@@ -963,31 +814,29 @@ async def get_carriers(
             }
         }
     )
-    p7.append({"$sort": {"calls": -1}})
-    p7.append({"$limit": 20})
+    p2.append({"$sort": {"calls": -1}})
+    p2.append({"$limit": 20})
 
-    # --- Pipeline 8: top requested lanes ---
-    p8: list[dict] = []
+    # --- Pipeline 3: top requested lanes ---
+    p3: list[dict] = []
     req_lane_match: dict = {"load_data.carrier_requested_lane": {"$ne": None}}
     if date_match:
         req_lane_match.update(date_match)
-    p8.append({"$match": req_lane_match})
-    p8.append(
-        {"$group": {"_id": "$load_data.carrier_requested_lane", "count": {"$sum": 1}}}
-    )
-    p8.append({"$sort": {"count": -1}})
-    p8.append({"$limit": 10})
+    p3.append({"$match": req_lane_match})
+    p3.append({"$group": {"_id": "$load_data.carrier_requested_lane", "count": {"$sum": 1}}})
+    p3.append({"$sort": {"count": -1}})
+    p3.append({"$limit": 10})
 
-    # --- Pipeline 9: top actual lanes ---
-    p9: list[dict] = []
+    # --- Pipeline 4: top actual lanes ---
+    p4: list[dict] = []
     actual_lane_match: dict = {
         "load_data.origin": {"$ne": None},
         "load_data.destination": {"$ne": None},
     }
     if date_match:
         actual_lane_match.update(date_match)
-    p9.append({"$match": actual_lane_match})
-    p9.append(
+    p4.append({"$match": actual_lane_match})
+    p4.append(
         {
             "$group": {
                 "_id": {
@@ -1001,64 +850,26 @@ async def get_carriers(
             }
         }
     )
-    p9.append({"$sort": {"count": -1}})
-    p9.append({"$limit": 10})
+    p4.append({"$sort": {"count": -1}})
+    p4.append({"$limit": 10})
 
-    # --- Pipeline 10: equipment distribution ---
-    p10: list[dict] = []
+    # --- Pipeline 5: equipment distribution ---
+    p5: list[dict] = []
     equip_match: dict = {"load_data.equipment_type": {"$ne": None}}
     if date_match:
         equip_match.update(date_match)
-    p10.append({"$match": equip_match})
-    p10.append(
-        {"$group": {"_id": "$load_data.equipment_type", "count": {"$sum": 1}}}
-    )
-    p10.append({"$sort": {"count": -1}})
+    p5.append({"$match": equip_match})
+    p5.append({"$group": {"_id": "$load_data.equipment_type", "count": {"$sum": 1}}})
+    p5.append({"$sort": {"count": -1}})
 
     r1 = await db.call_records.aggregate(p1).to_list(length=None)
     r2 = await db.call_records.aggregate(p2).to_list(length=None)
     r3 = await db.call_records.aggregate(p3).to_list(length=None)
-    r4 = await db.call_records.aggregate(p4).to_list(length=1)
+    r4 = await db.call_records.aggregate(p4).to_list(length=None)
     r5 = await db.call_records.aggregate(p5).to_list(length=None)
-    r6 = await db.call_records.aggregate(p6).to_list(length=None)
-    r7 = await db.call_records.aggregate(p7).to_list(length=None)
-    r8 = await db.call_records.aggregate(p8).to_list(length=None)
-    r9 = await db.call_records.aggregate(p9).to_list(length=None)
-    r10 = await db.call_records.aggregate(p10).to_list(length=None)
-
-    # Sentiment distribution
-    sentiment_distribution = {row["_id"]: row["count"] for row in r1 if row["_id"] is not None}
-
-    # Sentiment over time
-    sentiment_over_time = [
-        {
-            "date": row["_id"],
-            "positive": row["positive"],
-            "neutral": row["neutral"],
-            "negative": row["negative"],
-        }
-        for row in r2
-    ]
-
-    # Engagement levels
-    engagement_levels = {row["_id"]: row["count"] for row in r3 if row["_id"] is not None}
-
-    # Future interest rate
-    future_interest_rate = 0.0
-    if r4:
-        total = r4[0]["total"]
-        interested = r4[0]["interested"]
-        future_interest_rate = round(interested / total * 100, 1) if total else 0.0
 
     # Top objections
-    top_objections = [
-        ObjectionCount(objection=row["_id"], count=row["count"]) for row in r5
-    ]
-
-    # Top questions
-    top_questions = [
-        QuestionCount(question=row["_id"], count=row["count"]) for row in r6
-    ]
+    top_objections = [ObjectionCount(objection=row["_id"], count=row["count"]) for row in r1]
 
     # Carrier leaderboard
     carrier_leaderboard = [
@@ -1070,29 +881,134 @@ async def get_carriers(
                 round(row["accepted"] / row["calls"] * 100, 1) if row["calls"] else 0.0
             ),
         )
-        for row in r7
+        for row in r2
     ]
 
     # Lane intelligence
-    top_requested_lanes = [
-        LaneCount(lane=row["_id"], count=row["count"]) for row in r8
-    ]
-    top_actual_lanes = [
-        LaneCount(lane=row["_id"], count=row["count"]) for row in r9
-    ]
+    top_requested_lanes = [LaneCount(lane=row["_id"], count=row["count"]) for row in r3]
+    top_actual_lanes = [LaneCount(lane=row["_id"], count=row["count"]) for row in r4]
     equipment_distribution = [
-        EquipmentCount(equipment_type=row["_id"], count=row["count"]) for row in r10
+        EquipmentCount(equipment_type=row["_id"], count=row["count"]) for row in r5
     ]
 
     return CarriersResponse(
-        sentiment_distribution=sentiment_distribution,
-        sentiment_over_time=sentiment_over_time,
-        engagement_levels=engagement_levels,
-        future_interest_rate=future_interest_rate,
         top_objections=top_objections,
-        top_questions=top_questions,
         carrier_leaderboard=carrier_leaderboard,
         top_requested_lanes=top_requested_lanes,
         top_actual_lanes=top_actual_lanes,
         equipment_distribution=equipment_distribution,
     )
+
+
+# ---------------------------------------------------------------------------
+# Geography
+# ---------------------------------------------------------------------------
+
+
+async def get_geography(
+    date_from: Optional[str] = None, date_to: Optional[str] = None
+) -> GeographyResponse:
+    db = get_database()
+    date_match = _build_date_match(date_from, date_to)
+
+    # --- Pipeline 1: requested lanes (free-form text) ---
+    p1: list[dict] = []
+    req_match: dict = {"load_data.carrier_requested_lane": {"$ne": None}}
+    if date_match:
+        req_match.update(date_match)
+    p1.append({"$match": req_match})
+    p1.append({"$group": {"_id": "$load_data.carrier_requested_lane", "count": {"$sum": 1}}})
+    p1.append({"$sort": {"count": -1}})
+    p1.append({"$limit": 20})
+
+    # --- Pipeline 2: booked lanes (separate origin/destination fields) ---
+    p2: list[dict] = []
+    booked_match: dict = {
+        "load_data.origin": {"$ne": None},
+        "load_data.destination": {"$ne": None},
+    }
+    if date_match:
+        booked_match.update(date_match)
+    p2.append({"$match": booked_match})
+    p2.append(
+        {
+            "$group": {
+                "_id": {
+                    "origin": "$load_data.origin",
+                    "destination": "$load_data.destination",
+                },
+                "count": {"$sum": 1},
+            }
+        }
+    )
+    p2.append({"$sort": {"count": -1}})
+    p2.append({"$limit": 20})
+
+    r1 = await db.call_records.aggregate(p1).to_list(length=None)
+    r2 = await db.call_records.aggregate(p2).to_list(length=None)
+
+    arcs: list[GeoArc] = []
+    city_volumes: dict[str, int] = {}
+
+    def _add_volume(city: str, count: int) -> None:
+        city_volumes[city] = city_volumes.get(city, 0) + count
+
+    # Process requested lanes (free-form text -> parse_lane)
+    for row in r1:
+        parsed = parse_lane(row["_id"])
+        if not parsed:
+            continue
+        origin, dest = parsed
+        o_coords = CITY_COORDS[origin]
+        d_coords = CITY_COORDS[dest]
+        arcs.append(
+            GeoArc(
+                origin=origin,
+                origin_lat=o_coords[0],
+                origin_lng=o_coords[1],
+                destination=dest,
+                dest_lat=d_coords[0],
+                dest_lng=d_coords[1],
+                count=row["count"],
+                arc_type="requested",
+            )
+        )
+        _add_volume(origin, row["count"])
+        _add_volume(dest, row["count"])
+
+    # Process booked lanes (separate origin/destination)
+    for row in r2:
+        origin_raw = row["_id"]["origin"]
+        dest_raw = row["_id"]["destination"]
+        resolved_origin = resolve_city(origin_raw)
+        resolved_dest = resolve_city(dest_raw)
+        if not resolved_origin or not resolved_dest:
+            continue
+        o_coords = CITY_COORDS[resolved_origin]
+        d_coords = CITY_COORDS[resolved_dest]
+        arcs.append(
+            GeoArc(
+                origin=resolved_origin,
+                origin_lat=o_coords[0],
+                origin_lng=o_coords[1],
+                destination=resolved_dest,
+                dest_lat=d_coords[0],
+                dest_lng=d_coords[1],
+                count=row["count"],
+                arc_type="booked",
+            )
+        )
+        _add_volume(resolved_origin, row["count"])
+        _add_volume(resolved_dest, row["count"])
+
+    cities = [
+        GeoCity(
+            name=name,
+            lat=CITY_COORDS[name][0],
+            lng=CITY_COORDS[name][1],
+            volume=vol,
+        )
+        for name, vol in city_volumes.items()
+    ]
+
+    return GeographyResponse(arcs=arcs, cities=cities)

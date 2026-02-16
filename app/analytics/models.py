@@ -1,8 +1,6 @@
-from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field, model_validator
-
 
 # ---------------------------------------------------------------------------
 # Ingestion models (nested, mirrors webhook JSON)
@@ -10,14 +8,25 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class _WebhookModel(BaseModel):
-    """Base for webhook sub-models: coerces empty strings to None."""
+    """Base for webhook sub-models: coerces empty strings to None and wraps
+    bare strings into single-element lists when the field expects a list."""
 
     @model_validator(mode="before")
     @classmethod
-    def _empty_strings_to_none(cls, data):
+    def _coerce_webhook_values(cls, data):
         if isinstance(data, dict):
-            return {k: (None if v == "" else v) for k, v in data.items()}
+            list_fields = {
+                name
+                for name, field in cls.model_fields.items()
+                if field.annotation is not None
+                and getattr(field.annotation, "__origin__", None) is list
+            }
+            return {
+                k: (None if v == "" else [v] if isinstance(v, str) and k in list_fields else v)
+                for k, v in data.items()
+            }
         return data
+
 
 class SystemData(_WebhookModel):
     call_id: str
@@ -33,7 +42,7 @@ class FMCSAData(_WebhookModel):
 
 class LoadData(_WebhookModel):
     load_id_discussed: str
-    alternate_loads_presented: int
+    alternate_loads_presented: Optional[int] = None
     loadboard_rate: Optional[float] = None
     origin: Optional[str] = None
     destination: Optional[str] = None
@@ -115,6 +124,7 @@ class CallRecord(BaseModel):
 # Response models
 # ---------------------------------------------------------------------------
 
+
 class IngestResponse(BaseModel):
     call_id: str
     status: str  # "created" or "updated"
@@ -137,11 +147,6 @@ class TimeSeriesPoint(BaseModel):
     count: int = 0
 
 
-class DurationTimeSeriesPoint(BaseModel):
-    date: str
-    avg_duration: float = 0.0
-
-
 class ReasonCount(BaseModel):
     reason: str
     count: int
@@ -155,16 +160,13 @@ class FunnelStage(BaseModel):
 
 class OperationsResponse(BaseModel):
     calls_over_time: list[TimeSeriesPoint]
-    outcome_distribution: dict[str, int]
-    avg_duration_over_time: list[DurationTimeSeriesPoint]
     rejection_reasons: list[ReasonCount]
-    transfer_rate: float
     funnel: list[FunnelStage]
 
 
-class RateProgressionPoint(BaseModel):
-    round: str
-    avg_rate: float
+class NegotiationOutcome(BaseModel):
+    name: str
+    count: int
 
 
 class MarginBucket(BaseModel):
@@ -180,10 +182,10 @@ class StrategyRow(BaseModel):
 
 
 class NegotiationsResponse(BaseModel):
-    avg_first_offer: float
-    avg_final_rate: float
+    avg_savings: float
+    avg_savings_percent: float
     avg_rounds: float
-    rate_progression: list[RateProgressionPoint]
+    negotiation_outcomes: list[NegotiationOutcome]
     margin_distribution: list[MarginBucket]
     strategy_effectiveness: list[StrategyRow]
 
@@ -213,11 +215,6 @@ class ObjectionCount(BaseModel):
     count: int
 
 
-class QuestionCount(BaseModel):
-    question: str
-    count: int
-
-
 class CarrierLeaderboardRow(BaseModel):
     carrier_name: str
     mc_number: int
@@ -236,13 +233,31 @@ class EquipmentCount(BaseModel):
 
 
 class CarriersResponse(BaseModel):
-    sentiment_distribution: dict[str, int]
-    sentiment_over_time: list[dict]
-    engagement_levels: dict[str, int]
-    future_interest_rate: float
     top_objections: list[ObjectionCount]
-    top_questions: list[QuestionCount]
     carrier_leaderboard: list[CarrierLeaderboardRow]
     top_requested_lanes: list[LaneCount]
     top_actual_lanes: list[LaneCount]
     equipment_distribution: list[EquipmentCount]
+
+
+class GeoCity(BaseModel):
+    name: str  # "Dallas, TX"
+    lat: float
+    lng: float
+    volume: int  # total inbound+outbound count
+
+
+class GeoArc(BaseModel):
+    origin: str
+    origin_lat: float
+    origin_lng: float
+    destination: str
+    dest_lat: float
+    dest_lng: float
+    count: int
+    arc_type: str  # "requested" | "booked"
+
+
+class GeographyResponse(BaseModel):
+    arcs: list[GeoArc]
+    cities: list[GeoCity]

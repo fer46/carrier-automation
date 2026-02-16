@@ -18,6 +18,7 @@ import type {
   OperationsData,
   NegotiationsData,
   CarriersData,
+  GeographyData,
 } from './types';
 
 // Read the API key from Vite environment variables (prefixed with VITE_ to be
@@ -79,4 +80,8 @@ export const api = {
   /** Fetch carrier-focused metrics (sentiment, engagement, objections, leaderboard). */
   getCarriers: (from?: string, to?: string) =>
     fetchAPI<CarriersData>(`${BASE}/carriers`, { from: from || '', to: to || '' }),
+
+  /** Fetch geography data (requested vs booked lanes arc map). */
+  getGeography: (from?: string, to?: string) =>
+    fetchAPI<GeographyData>(`${BASE}/geography`, { from: from || '', to: to || '' }),
 };
