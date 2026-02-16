@@ -20,4 +20,7 @@ COPY . .
 ARG VITE_API_KEY=""
 RUN cd dashboard && npm install && VITE_API_KEY=${VITE_API_KEY} npm run build
 
+RUN adduser --disabled-password --gecos '' --no-create-home appuser
+USER appuser
+
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

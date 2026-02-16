@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.analytics.router import router as analytics_router
+from app.config import settings
 from app.database import connect_db, disconnect_db
 from app.loads.router import router as loads_router
 
@@ -24,11 +25,14 @@ app = FastAPI(
     title="Carrier Load Automation",
     version="0.1.0",
     lifespan=lifespan,
+    docs_url="/docs" if settings.DOCS_ENABLED else None,
+    redoc_url="/redoc" if settings.DOCS_ENABLED else None,
+    openapi_url="/openapi.json" if settings.DOCS_ENABLED else None,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[o.strip() for o in settings.CORS_ORIGINS.split(",")],
     allow_methods=["*"],
     allow_headers=["*"],
 )

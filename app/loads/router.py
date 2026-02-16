@@ -50,13 +50,22 @@ async def search(
 
     # Coerce empty strings to None; parse numeric strings to float.
     # The voice AI sends "" when the carrier doesn't specify a value.
+    try:
+        min_rate_val = float(min_rate) if min_rate else None
+        max_rate_val = float(max_rate) if max_rate else None
+        max_weight_val = float(max_weight) if max_weight else None
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=422, detail="min_rate, max_rate, and max_weight must be numeric"
+        )
+
     loads = await search_loads(
         origin=origin or None,
         destination=destination or None,
         equipment_type=equipment_type or None,
-        min_rate=float(min_rate) if min_rate else None,
-        max_rate=float(max_rate) if max_rate else None,
-        max_weight=float(max_weight) if max_weight else None,
+        min_rate=min_rate_val,
+        max_rate=max_rate_val,
+        max_weight=max_weight_val,
         pickup_date=pickup_datetime or None,
         delivery_date=delivery_datetime or None,
     )
