@@ -36,7 +36,8 @@ async def search(
     min_rate: Optional[str] = Query(None),  # Minimum acceptable rate in USD
     max_rate: Optional[str] = Query(None),  # Maximum acceptable rate in USD
     max_weight: Optional[str] = Query(None),  # Carrier's truck weight limit in lbs
-    pickup_date: Optional[str] = Query(None),  # Earliest pickup date, e.g. "2026-02-15"
+    pickup_datetime: Optional[str] = Query(None),  # Earliest pickup date, e.g. "2026-02-15"
+    delivery_datetime: Optional[str] = Query(None),  # Latest delivery date, e.g. "2026-02-20"
 ):
     """Search for available loads matching carrier preferences.
 
@@ -56,7 +57,8 @@ async def search(
         min_rate=float(min_rate) if min_rate else None,
         max_rate=float(max_rate) if max_rate else None,
         max_weight=float(max_weight) if max_weight else None,
-        pickup_date=pickup_date or None,
+        pickup_date=pickup_datetime or None,
+        delivery_date=delivery_datetime or None,
     )
     return LoadResponse(loads=loads, total=len(loads))
 
