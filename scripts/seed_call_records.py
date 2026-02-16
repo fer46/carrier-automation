@@ -125,12 +125,6 @@ CORRIDOR_MILES = {
     ("Cincinnati, OH", "Indianapolis, IN"): 110,
 }
 
-# All available cities for random requested lanes
-CITIES = list(
-    {c for pair in FREIGHT_CORRIDORS for c in (pair[0], pair[1])}
-)
-CITIES.sort()
-
 EQUIPMENT_TYPES = ["Dry Van", "Reefer", "Flatbed", "Power Only", "Step Deck"]
 EQUIPMENT_WEIGHTS = [0.45, 0.25, 0.15, 0.10, 0.05]
 
@@ -324,11 +318,36 @@ def generate_call_record(call_index: int, base_date: datetime) -> dict:
     carrier_objections = random.sample(OBJECTIONS, num_objections)
 
     # -- Requested lane (carrier sometimes wants a different lane) --
+    # ~40% got exactly what they wanted (no separate requested lane needed),
+    # ~35% requested a related lane (same origin or nearby corridor),
+    # ~25% had no specific lane preference (no field set).
     carrier_requested_lane = None
-    if random.random() < 0.55:
-        req_origin = random.choice(CITIES)
-        req_dest = random.choice([c for c in CITIES if c != req_origin])
-        carrier_requested_lane = f"{req_origin} \u2192 {req_dest}"
+    lane_roll = random.random()
+    if lane_roll < 0.40:
+        # Carrier got booked on their requested lane — no separate field
+        pass
+    elif lane_roll < 0.75:
+        # Carrier requested a different but realistic lane (weighted corridors)
+        # Bias toward same-origin lanes to simulate "I'm in X, what do you have?"
+        same_origin_corridors = [
+            (i, c) for i, c in enumerate(FREIGHT_CORRIDORS)
+            if c[0] == origin and c[1] != destination
+        ]
+        if same_origin_corridors and random.random() < 0.60:
+            # 60% chance: same origin, different destination
+            idx, corridor_pick = random.choice(same_origin_corridors)
+            carrier_requested_lane = f"{corridor_pick[0]} \u2192 {corridor_pick[1]}"
+        else:
+            # Pick from weighted corridors (excluding the booked lane)
+            other_corridors = [
+                (i, c) for i, c in enumerate(FREIGHT_CORRIDORS)
+                if not (c[0] == origin and c[1] == destination)
+            ]
+            if other_corridors:
+                indices, corridors = zip(*other_corridors)
+                weights = [CORRIDOR_WEIGHTS[i] for i in indices]
+                corridor_pick = random.choices(corridors, weights=weights, k=1)[0]
+                carrier_requested_lane = f"{corridor_pick[0]} \u2192 {corridor_pick[1]}"
 
     # -- Pickup / delivery --
     pickup = ingested_at + timedelta(days=random.randint(1, 4))
