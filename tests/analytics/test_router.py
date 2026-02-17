@@ -43,7 +43,7 @@ SAMPLE_CALL_RECORD = {
             "negotiation_rounds": 2,
         },
         "outcome": {
-            "call_outcome": "accepted",
+            "call_outcome": "Success",
             "rejection_reason": None,
             "funnel_stage_reached": "transferred_to_sales",
         },
