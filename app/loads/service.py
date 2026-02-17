@@ -15,7 +15,7 @@ async def _get_call_pressure(load_ids: list[str]) -> dict[str, dict]:
     if not load_ids:
         return {}
     db = get_database()
-    pipeline = [
+    pipeline: list[dict] = [
         {"$match": {"load_data.load_id_discussed": {"$in": load_ids}}},
         {
             "$group": {
