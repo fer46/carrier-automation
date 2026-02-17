@@ -26,7 +26,7 @@ The API acts as the **decision engine** behind the voice agent, and the dashboar
 ```
 app/
 ├── main.py              # App entry point, startup/shutdown, health check, SPA serving
-├── config.py            # Environment variables (MongoDB URL, API key)
+├── config.py            # Environment variables (MongoDB URL, API key, CORS, docs toggle)
 ├── database.py          # MongoDB connection management
 ├── dependencies.py      # API key authentication
 ├── loads/               # Everything related to searching loads
@@ -79,7 +79,8 @@ Find available loads matching carrier preferences. All filters are optional — 
 | `min_rate`         | string | Minimum pay rate ($)                 |
 | `max_rate`         | string | Maximum pay rate ($)                 |
 | `max_weight`       | string | Carrier's truck weight capacity (lbs)|
-| `pickup_date`      | string | ISO date (e.g. `2026-02-15`)         |
+| `pickup_datetime`  | string | Earliest pickup date (e.g. `2026-02-15`) |
+| `delivery_datetime`| string | Latest delivery date (e.g. `2026-02-20`) |
 
 **What happens behind the scenes:**
 - Filters out loads that are already booked or have expired pickup dates
@@ -134,10 +135,12 @@ Built with React 19, TypeScript, Tailwind CSS 4, Recharts, and react-simple-maps
 # 1. Install Python dependencies
 uv pip install -r requirements.txt
 
-# 2. Configure environment — edit .env with your MongoDB URL and API key
-#    MONGODB_URL="mongodb://localhost:27017"
+# 2. Configure environment — copy .env.example or create .env
+#    MONGODB_URI="mongodb://localhost:27017"
 #    DATABASE_NAME=carrier_load_automation
 #    API_KEY="your-secret-key"
+#    CORS_ORIGINS="http://localhost:5173,http://localhost:8000"
+#    DOCS_ENABLED=true
 
 # 3. Seed the database with sample loads
 .venv/bin/python scripts/seed_db.py
@@ -157,10 +160,18 @@ The API will be available at `http://localhost:8000`. Check `http://localhost:80
 ### Run with Docker
 
 ```bash
+# Set a MongoDB password for the local container (optional, defaults to "changeme")
+export MONGO_PASSWORD="your-mongo-password"
+
 docker-compose up --build
 ```
 
-This starts both the API (port 8000) and a MongoDB instance (port 27017) with persistent storage. The Dockerfile builds the dashboard automatically.
+This starts both the API (port 8000) and a MongoDB instance (localhost:27017, auth enabled) with persistent storage. The Dockerfile builds the dashboard automatically and runs as a non-root user.
+
+When using Docker MongoDB with auth, set `MONGODB_URI` in your `.env` to include the credentials:
+```
+MONGODB_URI=mongodb://admin:your-mongo-password@mongodb:27017/?authSource=admin
+```
 
 ### Run Tests
 
