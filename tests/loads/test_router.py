@@ -45,23 +45,54 @@ async def test_get_load_not_found(client):
         assert response.status_code == 404
 
 
-async def test_search_loads_includes_pricing(client):
+async def test_search_loads_includes_pricing_cold_load(client):
+    """Cold load (far future pickup, no call history) → base rates."""
     response = await client.get("/api/loads/search", params={"validation_check": "VALID"})
     assert response.status_code == 200
     data = response.json()
     for load in data["loads"]:
         assert "target_carrier_rate" in load
-        # Verify exact calculation: loadboard_rate=2800
-        expected_target = round(load["loadboard_rate"] * 0.88, 2)
+        assert "cap_carrier_rate" in load
+        # Cold load: pressure=0 → target=0.95×, cap=1.0×
+        expected_target = round(load["loadboard_rate"] * 0.95, 2)
+        expected_cap = round(load["loadboard_rate"] * 1.0, 2)
         assert load["target_carrier_rate"] == expected_target
+        assert load["cap_carrier_rate"] == expected_cap
 
 
-async def test_get_load_by_id_includes_pricing(client):
+async def test_get_load_by_id_includes_pricing_cold_load(client):
+    """Cold load via get_by_id → base rates."""
     response = await client.get("/api/loads/LD-001")
     assert response.status_code == 200
     data = response.json()
-    # loadboard_rate=2800 → target=2464.0
-    assert data["target_carrier_rate"] == 2464.0
+    # Cold load: loadboard_rate=2800 → target=2660.0, cap=2800.0
+    assert data["target_carrier_rate"] == 2660.0
+    assert data["cap_carrier_rate"] == 2800.0
+
+
+async def test_dynamic_pricing_with_rate_rejections(api_key, sample_loads):
+    """Rate rejections increase target and cap via pressure."""
+    from tests.conftest import _make_mock_db
+
+    call_pressure = [
+        {"_id": "LD-001", "total_calls": 5, "rate_rejections": 3},
+    ]
+    mock_db = _make_mock_db(sample_loads, sample_loads[0], call_pressure)
+
+    with patch("app.loads.service.get_database", return_value=mock_db):
+        from httpx import ASGITransport, AsyncClient
+
+        from app.main import app
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            ac.headers["X-API-Key"] = api_key
+            response = await ac.get("/api/loads/LD-001")
+            data = response.json()
+            # 3 rejections → rejection_pressure=0.6, pickup far → urgency=0
+            # pressure=0.6 → target=0.95+0.03=0.98×, cap=1.0+min(0.036,0.05)=1.036×
+            assert data["target_carrier_rate"] == round(2800 * 0.98, 2)
+            assert data["cap_carrier_rate"] == round(2800 * 1.036, 2)
 
 
 async def test_search_loads_requires_api_key():

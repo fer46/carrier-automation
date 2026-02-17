@@ -19,8 +19,8 @@ def sample_loads():
             "load_id": "LD-001",
             "origin": "Dallas, TX",
             "destination": "Miami, FL",
-            "pickup_datetime": "2026-02-15T08:00:00",
-            "delivery_datetime": "2026-02-17T14:00:00",
+            "pickup_datetime": "2027-06-15T08:00:00",
+            "delivery_datetime": "2027-06-17T14:00:00",
             "equipment_type": "Dry Van",
             "loadboard_rate": 2800,
             "status": "available",
@@ -34,7 +34,7 @@ def sample_loads():
     ]
 
 
-def _make_mock_db(loads_data, find_one_result):
+def _make_mock_db(loads_data, find_one_result, call_pressure_results=None):
     mock_cursor = AsyncMock()
     mock_cursor.to_list = AsyncMock(return_value=loads_data)
 
@@ -42,8 +42,14 @@ def _make_mock_db(loads_data, find_one_result):
     mock_collection.find = MagicMock(return_value=mock_cursor)
     mock_collection.find_one = AsyncMock(return_value=find_one_result)
 
+    mock_agg_cursor = AsyncMock()
+    mock_agg_cursor.to_list = AsyncMock(return_value=call_pressure_results or [])
+    mock_call_records = MagicMock()
+    mock_call_records.aggregate = MagicMock(return_value=mock_agg_cursor)
+
     mock_db = MagicMock()
     mock_db.loads = mock_collection
+    mock_db.call_records = mock_call_records
     return mock_db
 
 
