@@ -17,29 +17,37 @@ async def _get_call_pressure(load_ids: list[str]) -> dict[str, dict]:
     db = get_database()
     pipeline = [
         {"$match": {"load_data.load_id_discussed": {"$in": load_ids}}},
-        {"$group": {
-            "_id": "$load_data.load_id_discussed",
-            "total_calls": {"$sum": 1},
-            "rate_rejections": {
-                "$sum": {"$cond": [
-                    {"$and": [
-                        {"$eq": ["$transcript_extraction.call_outcome", "rejected"]},
-                        {"$eq": [
-                            "$transcript_extraction.rejection_reason", "Rate too low"
-                        ]},
-                    ]},
-                    1, 0,
-                ]}
-            },
-        }},
+        {
+            "$group": {
+                "_id": "$load_data.load_id_discussed",
+                "total_calls": {"$sum": 1},
+                "rate_rejections": {
+                    "$sum": {
+                        "$cond": [
+                            {
+                                "$and": [
+                                    {"$eq": ["$transcript_extraction.call_outcome", "rejected"]},
+                                    {
+                                        "$eq": [
+                                            "$transcript_extraction.rejection_reason",
+                                            "Rate too low",
+                                        ]
+                                    },
+                                ]
+                            },
+                            1,
+                            0,
+                        ]
+                    }
+                },
+            }
+        },
     ]
     results = await db.call_records.aggregate(pipeline).to_list(length=None)
     return {r["_id"]: r for r in results}
 
 
-def _apply_pricing(
-    load: Load, total_calls: int = 0, rate_rejections: int = 0
-) -> Load:
+def _apply_pricing(load: Load, total_calls: int = 0, rate_rejections: int = 0) -> Load:
     """Dynamic pricing based on pickup urgency and carrier rejection history.
 
     Mimics a freight broker's decision-making:
@@ -57,9 +65,7 @@ def _apply_pricing(
     """
     # Naive UTC comparison — stored datetimes are naive ISO strings
     now = datetime.now(UTC).replace(tzinfo=None)
-    hours_to_pickup = max(
-        (load.pickup_datetime - now).total_seconds() / 3600, 0
-    )
+    hours_to_pickup = max((load.pickup_datetime - now).total_seconds() / 3600, 0)
 
     urgency = max(1.0 - hours_to_pickup / 72, 0.0)
     rejection_pressure = min(rate_rejections / 5, 1.0)

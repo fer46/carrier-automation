@@ -6,9 +6,10 @@ AI-powered carrier load booking system with analytics dashboard. FastAPI + Mongo
 - **Domain-driven structure**: Each domain gets its own folder under `app/` with `router.py`, `service.py`, `models.py`
 - **Current domains**: `loads` (search & get by ID), `analytics` (call record aggregation, KPIs, geography)
 - **Dashboard**: React 19 + TypeScript + Tailwind CSS 4 + Recharts + react-simple-maps, served at `/dashboard`
-- **Auth**: API key via `X-API-Key` header, validated in `app/dependencies.py`
+- **Auth**: API key via `X-API-Key` header, timing-safe comparison in `app/dependencies.py`
 - **DB**: MongoDB via Motor async driver, lifecycle managed in `app/database.py`
-- **Config**: Pydantic Settings in `app/config.py`, reads from `.env`
+- **Config**: Pydantic Settings in `app/config.py`, reads from `.env` (includes `CORS_ORIGINS`, `DOCS_ENABLED`)
+- **Security**: CORS restricted to configured origins, OpenAPI docs toggleable, Docker runs as non-root with `.dockerignore`
 
 ### Key Paths
 - `app/main.py` — FastAPI app entry point (lifespan, routers, health check, SPA serving)
