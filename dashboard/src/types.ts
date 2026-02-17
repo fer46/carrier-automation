@@ -29,8 +29,6 @@ export interface SummaryData {
   avg_negotiation_rounds: number;
   /** Average profit margin as a percentage (0-100). */
   avg_margin_percent: number;
-  /** Total revenue from booked (accepted) loads. */
-  total_booked_revenue: number;
   /** Total margin earned across all accepted loads (loadboard_rate - final_agreed_rate). */
   total_margin_earned: number;
   /** Average rate per mile across accepted loads with mileage data. */
