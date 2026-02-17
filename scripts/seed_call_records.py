@@ -159,9 +159,9 @@ FUNNEL_STAGES = [
     "deal_agreed",
     "transferred_to_sales",
 ]
-# Agents are great at progressing calls — most deals agreed get transferred
-# Realistic: nearly all deal_agreed calls proceed to transferred_to_sales
-FUNNEL_STAGE_WEIGHTS = [0.02, 0.03, 0.06, 0.08, 0.18, 0.04, 0.59]
+# Agents are great at progressing calls — ~72% acceptance rate
+# Rejected (stages 0-4) ≈ 28%, Accepted (stages 5-6) ≈ 72%
+FUNNEL_STAGE_WEIGHTS = [0.02, 0.02, 0.04, 0.06, 0.14, 0.08, 0.64]
 
 STRATEGIES = ["Collaborative", "Anchoring", "Conservative", "Aggressive"]
 STRATEGY_WEIGHTS = [0.40, 0.25, 0.20, 0.15]
