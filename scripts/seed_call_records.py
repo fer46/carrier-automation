@@ -215,7 +215,7 @@ def _get_miles(origin: str, destination: str) -> float:
 def generate_call_record(call_index: int, base_date: datetime) -> dict:
     # -- Timestamp: weekday-heavy, business hours --
     for _ in range(20):  # retry until we land on a weekday (85% chance)
-        days_offset = random.randint(0, 29)
+        days_offset = random.randint(0, 27)
         candidate = base_date + timedelta(days=days_offset)
         if candidate.weekday() < 5 or random.random() < 0.15:
             break
@@ -524,7 +524,7 @@ async def seed():
     if deleted.deleted_count:
         print(f"Removed {deleted.deleted_count} previous mock records")
 
-    # Base date: 30 days ago
+    # Base date: 30 days ago; records end 2 days before today (no today/yesterday)
     base_date = datetime.now(tz=UTC) - timedelta(days=30)
 
     records = [generate_call_record(i, base_date) for i in range(1, NUM_RECORDS + 1)]
@@ -556,7 +556,7 @@ async def seed():
     print(f"  Negotiated deals: {with_negotiation}")
     if margins:
         print(f"  Avg margin: {sum(margins) / len(margins):.1f}%")
-    print(f"  Date range: {base_date.date()} to {(base_date + timedelta(days=29)).date()}")
+    print(f"  Date range: {base_date.date()} to {(base_date + timedelta(days=27)).date()}")
     print(f"  Unique carriers: {len(set(r['fmcsa_data']['carrier_mc_number'] for r in records))}")
     client.close()
 
