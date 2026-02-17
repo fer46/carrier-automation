@@ -412,7 +412,7 @@ def generate_call_record(call_index: int, base_date: datetime) -> dict:
             "retrieval_date": ingested_at.strftime("%Y-%m-%d"),
         },
         "load_data": {
-            "load_id_discussed": f"LD-{random.randint(1, 50):03d}",
+            "load_id_discussed": f"LD-{random.randint(1, 81):03d}",
             "alternate_loads_presented": alternate_loads,
             "loadboard_rate": loadboard_rate,
             "origin": origin,
