@@ -101,7 +101,7 @@ export default function NegotiationsTab({ data }: Props) {
         {/* Margin Distribution: histogram showing how many deals fall into each
             profit margin bucket (e.g. "0-5%", "5-10%", etc.). */}
         <div className="bg-gray-50 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Margin Distribution</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Margin Distribution (vs. Load Board Rate)</h3>
           {data.margin_distribution.length === 0 ? <EmptyState /> : (
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={data.margin_distribution}>

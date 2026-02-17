@@ -110,9 +110,6 @@ export default function App() {
           // Onboarding banner: shown when the database has zero call records.
           <div className="bg-white rounded-xl border border-gray-200 p-12 text-center mb-6">
             <p className="text-gray-400 text-lg mb-2">No call data yet</p>
-            <p className="text-gray-500 text-sm">
-              POST call records to <code className="bg-gray-100 px-2 py-0.5 rounded text-black">/api/analytics/calls</code> to see metrics here.
-            </p>
           </div>
         ) : summary ? (
           // KPI hero cards: 7 key metrics displayed in a responsive grid.
@@ -122,8 +119,8 @@ export default function App() {
             <KPICard label="Avg Call Duration" value={summary.avg_call_duration} format="duration" />
             <KPICard label="Acceptance Rate" value={summary.acceptance_rate} format="percent" color="green" />
             <KPICard label="Booked Revenue" value={summary.total_booked_revenue} format="dollar" color="green" />
-            <KPICard label="Margin Earned" value={summary.total_margin_earned} format="dollar" color="green" />
-            <KPICard label="Avg Margin %" value={summary.avg_margin_percent} format="percent" color="green" />
+            <KPICard label="Margin Earned" value={summary.total_margin_earned} format="dollar" color="green" tooltip="Total savings across all accepted deals compared to the posted load board rate." />
+            <KPICard label="Avg Margin %" value={summary.avg_margin_percent} format="percent" color="green" tooltip="Average percentage saved per deal relative to the posted load board rate." />
             <KPICard label="Rate/Mile" value={summary.avg_rate_per_mile} format="dollar" />
             <KPICard label="Unique Carriers" value={summary.total_carriers} />
           </div>

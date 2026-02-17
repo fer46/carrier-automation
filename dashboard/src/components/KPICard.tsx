@@ -17,6 +17,7 @@ interface KPICardProps {
   value: string | number;
   format?: 'number' | 'percent' | 'duration' | 'dollar';
   color?: 'default' | 'green';
+  tooltip?: string;
 }
 
 const colorMap = {
@@ -47,10 +48,19 @@ function formatValue(value: string | number, format?: string): string {
   return value.toFixed(1);
 }
 
-export default function KPICard({ label, value, format, color = 'default' }: KPICardProps) {
+export default function KPICard({ label, value, format, color = 'default', tooltip }: KPICardProps) {
   return (
     <div className={`rounded-xl border p-5 ${colorMap[color]}`}>
-      <p className="text-sm font-medium opacity-70 mb-1">{label}</p>
+      {tooltip ? (
+        <p className="text-sm font-medium opacity-70 mb-1 relative group cursor-help">
+          {label}
+          <span className="invisible group-hover:visible absolute left-0 top-full mt-1 z-10 w-56 rounded-lg bg-gray-800 text-white text-xs font-normal p-2.5 leading-relaxed shadow-lg">
+            {tooltip}
+          </span>
+        </p>
+      ) : (
+        <p className="text-sm font-medium opacity-70 mb-1">{label}</p>
+      )}
       <p className="text-3xl font-bold tracking-tight">{formatValue(value, format)}</p>
     </div>
   );
