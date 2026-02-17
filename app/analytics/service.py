@@ -135,30 +135,6 @@ async def get_summary(
                         ]
                     }
                 },
-                "total_booked_revenue": {
-                    "$sum": {
-                        "$cond": [
-                            {
-                                "$and": [
-                                    {
-                                        "$eq": [
-                                            "$transcript_extraction.outcome.call_outcome",
-                                            "Success",
-                                        ]
-                                    },
-                                    {
-                                        "$ne": [
-                                            "$transcript_extraction.negotiation.final_agreed_rate",
-                                            None,
-                                        ]
-                                    },
-                                ]
-                            },
-                            "$transcript_extraction.negotiation.final_agreed_rate",
-                            0,
-                        ]
-                    }
-                },
                 "total_margin_earned": {
                     "$sum": {
                         "$cond": [
@@ -234,7 +210,6 @@ async def get_summary(
             avg_call_duration=0.0,
             avg_negotiation_rounds=0.0,
             avg_margin_percent=0.0,
-            total_booked_revenue=0.0,
             total_margin_earned=0.0,
             avg_rate_per_mile=0.0,
             total_carriers=0,
@@ -248,7 +223,6 @@ async def get_summary(
         avg_call_duration=round(row["avg_duration"] or 0.0, 1),
         avg_negotiation_rounds=round(row["avg_rounds"] or 0.0, 1),
         avg_margin_percent=round(row["avg_margin"] or 0.0, 1),
-        total_booked_revenue=round(row["total_booked_revenue"] or 0.0, 2),
         total_margin_earned=round(row["total_margin_earned"] or 0.0, 2),
         avg_rate_per_mile=round(row["avg_rate_per_mile"] or 0.0, 2),
         total_carriers=len(row["unique_carriers"]),

@@ -181,7 +181,6 @@ async def summary_client():
                 "avg_duration": 245.5,
                 "avg_rounds": 2.1,
                 "avg_margin": 8.4,
-                "total_booked_revenue": 14000.0,
                 "total_margin_earned": 1400.0,
                 "avg_rate_per_mile": 2.17,
                 "unique_carriers": [1234, 5678, 9012, 3456, 7890],
@@ -202,7 +201,6 @@ async def test_summary_returns_200(summary_client):
     assert data["total_calls"] == 10
     assert data["acceptance_rate"] == 70.0
     assert data["avg_call_duration"] == 245.5
-    assert data["total_booked_revenue"] == 14000.0
     assert data["total_margin_earned"] == 1400.0
     assert data["avg_rate_per_mile"] == 2.17
     assert data["total_carriers"] == 5
