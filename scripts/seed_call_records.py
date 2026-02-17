@@ -424,7 +424,7 @@ def generate_call_record(call_index: int, base_date: datetime) -> dict:
         },
         "transcript_extraction": {
             "outcome": {
-                "call_outcome": "accepted" if is_accepted else "rejected",
+                "call_outcome": "Success" if is_accepted else "rejected",
                 "funnel_stage_reached": funnel_stage,
             },
             "negotiation": negotiation,
@@ -537,7 +537,7 @@ async def seed():
 
     # Summary
     accepted = sum(
-        1 for r in records if r["transcript_extraction"]["outcome"]["call_outcome"] == "accepted"
+        1 for r in records if r["transcript_extraction"]["outcome"]["call_outcome"] == "Success"
     )
     with_negotiation = sum(
         1

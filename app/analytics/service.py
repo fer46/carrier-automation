@@ -86,7 +86,7 @@ async def get_summary(
                             {
                                 "$eq": [
                                     "$transcript_extraction.outcome.call_outcome",
-                                    "accepted",
+                                    "Success",
                                 ]
                             },
                             1,
@@ -143,7 +143,7 @@ async def get_summary(
                                     {
                                         "$eq": [
                                             "$transcript_extraction.outcome.call_outcome",
-                                            "accepted",
+                                            "Success",
                                         ]
                                     },
                                     {
@@ -167,7 +167,7 @@ async def get_summary(
                                     {
                                         "$eq": [
                                             "$transcript_extraction.outcome.call_outcome",
-                                            "accepted",
+                                            "Success",
                                         ]
                                     },
                                     {
@@ -448,7 +448,7 @@ async def get_negotiations(
                                         {
                                             "$eq": [
                                                 "$transcript_extraction.outcome.call_outcome",
-                                                "accepted",
+                                                "Success",
                                             ]
                                         }
                                     ]
@@ -539,7 +539,7 @@ async def get_negotiations(
                             {
                                 "$eq": [
                                     "$transcript_extraction.outcome.call_outcome",
-                                    "accepted",
+                                    "Success",
                                 ]
                             },
                             1,
@@ -803,7 +803,7 @@ async def get_carriers(
                             {
                                 "$eq": [
                                     "$transcript_extraction.outcome.call_outcome",
-                                    "accepted",
+                                    "Success",
                                 ]
                             },
                             1,
