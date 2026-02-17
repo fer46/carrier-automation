@@ -86,12 +86,15 @@ export default function CarriersTab({ data }: Props) {
                 </PieChart>
               </ResponsiveContainer>
               <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 justify-center">
-                {data.equipment_distribution.map((e, i) => (
-                  <div key={i} className="flex items-center gap-1.5 text-xs text-gray-600">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: EQUIP_COLORS[i % EQUIP_COLORS.length] }} />
-                    {e.equipment_type} ({e.count})
-                  </div>
-                ))}
+                {(() => {
+                  const total = data.equipment_distribution.reduce((sum, e) => sum + e.count, 0);
+                  return data.equipment_distribution.map((e, i) => (
+                    <div key={i} className="flex items-center gap-1.5 text-xs text-gray-600">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: EQUIP_COLORS[i % EQUIP_COLORS.length] }} />
+                      {e.equipment_type} ({total > 0 ? Math.round((e.count / total) * 100) : 0}%)
+                    </div>
+                  ));
+                })()}
               </div>
             </>
           )}
