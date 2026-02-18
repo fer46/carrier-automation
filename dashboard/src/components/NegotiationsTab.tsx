@@ -14,10 +14,6 @@
  *        talks to carriers: accepted at first offer, negotiated & agreed, or no deal
  *      - Margin Distribution (BarChart) -- histogram of profit margin buckets
  *        so the team can see where most deals land
- *
- *   3. Strategy Effectiveness (full-width table):
- *      - Compares different negotiation strategies by acceptance rate, average
- *        rounds, and usage count.  Colour-coded: green >= 70%, amber >= 50%, red < 50%.
  */
 
 import {

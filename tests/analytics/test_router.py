@@ -53,16 +53,6 @@ SAMPLE_CALL_RECORD = {
             "engagement_level": "high",
             "carrier_expressed_interest_future": True,
         },
-        "performance": {
-            "agent_followed_protocol": True,
-            "protocol_violations": [],
-            "agent_tone_quality": "professional",
-        },
-        "conversation": {
-            "ai_interruptions_count": 1,
-            "transcription_errors_detected": False,
-            "carrier_had_to_repeat_info": False,
-        },
         "operational": {
             "transfer_to_sales_attempted": False,
             "transfer_to_sales_completed": False,
@@ -204,7 +194,6 @@ async def test_summary_returns_200(summary_client):
     assert data["total_margin_earned"] == 1400.0
     assert data["avg_rate_per_mile"] == 2.17
     assert data["total_carriers"] == 5
-    assert "ai_protocol_compliance" not in data
 
 
 async def test_summary_empty_db():

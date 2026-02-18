@@ -95,6 +95,41 @@ async def test_dynamic_pricing_with_rate_rejections(api_key, sample_loads):
             assert data["cap_carrier_rate"] == round(2800 * 1.036, 2)
 
 
+async def test_delivery_date_only_includes_same_day_loads(api_key, sample_loads):
+    """Date-only delivery filter should include loads delivering on that date.
+
+    The voice AI sends "2027-06-17" (no time component). The DB stores
+    "2027-06-17T14:00:00". Without the fix, the $lte comparison would
+    exclude these loads because "T14:00:00" sorts after end-of-string.
+    """
+    from tests.conftest import _make_mock_db
+
+    mock_db = _make_mock_db(sample_loads, sample_loads[0])
+
+    with patch("app.loads.service.get_database", return_value=mock_db):
+        from httpx import ASGITransport, AsyncClient
+
+        from app.main import app
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            ac.headers["X-API-Key"] = api_key
+            response = await ac.get(
+                "/api/loads/search",
+                params={
+                    "validation_check": "VALID",
+                    "delivery_datetime": "2027-06-17",
+                },
+            )
+            assert response.status_code == 200
+            # The mock DB always returns sample_loads, but verify the query
+            # was built correctly by checking that the delivery filter includes
+            # the T23:59:59 suffix
+            call_args = mock_db.loads.find.call_args
+            query = call_args[0][0]
+            assert query["delivery_datetime"] == {"$lte": "2027-06-17T23:59:59"}
+
+
 async def test_search_loads_requires_api_key():
     from httpx import ASGITransport, AsyncClient
 

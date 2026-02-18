@@ -1,3 +1,9 @@
+"""MongoDB connection lifecycle management.
+
+Uses a module-level singleton client. Call connect_db() at app startup
+(via the FastAPI lifespan) before using get_database().
+"""
+
 from typing import Optional
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase

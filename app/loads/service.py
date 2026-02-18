@@ -232,7 +232,13 @@ async def search_loads(
     # --- Delivery date filter ---
     # "I need to deliver by Friday" → only show loads with delivery on or before
     # that date. Ensures the carrier can meet their scheduling constraints.
+    # When the voice AI sends a date-only string like "2026-02-17", we append
+    # "T23:59:59" so that loads delivering any time on that day are included.
+    # Without this, "2026-02-17T14:00:00" <= "2026-02-17" is FALSE
+    # lexicographically because 'T' > end-of-string.
     if delivery_date is not None:
+        if "T" not in delivery_date:
+            delivery_date += "T23:59:59"
         query["delivery_datetime"] = {"$lte": delivery_date}
 
     # Execute the query:

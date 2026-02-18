@@ -66,18 +66,6 @@ class Sentiment(_WebhookModel):
     carrier_expressed_interest_future: Optional[bool] = None
 
 
-class Performance(_WebhookModel):
-    agent_followed_protocol: Optional[bool] = None
-    protocol_violations: list[str] = Field(default_factory=list)
-    agent_tone_quality: Optional[str] = None
-
-
-class Conversation(_WebhookModel):
-    ai_interruptions_count: Optional[int] = None
-    transcription_errors_detected: Optional[bool] = None
-    carrier_had_to_repeat_info: Optional[bool] = None
-
-
 class Operational(_WebhookModel):
     transfer_to_sales_attempted: Optional[bool] = None
     transfer_to_sales_completed: Optional[bool] = None
@@ -107,8 +95,6 @@ class TranscriptExtraction(BaseModel):
     negotiation: Negotiation = Field(default_factory=Negotiation)
     outcome: Outcome
     sentiment: Sentiment = Field(default_factory=Sentiment)
-    performance: Performance = Field(default_factory=Performance)
-    conversation: Conversation = Field(default_factory=Conversation)
     operational: Operational = Field(default_factory=Operational)
     optional: OptionalData = Field(default_factory=OptionalData)
 
@@ -187,26 +173,6 @@ class NegotiationsResponse(BaseModel):
     negotiation_outcomes: list[NegotiationOutcome]
     margin_distribution: list[MarginBucket]
     strategy_effectiveness: list[StrategyRow]
-
-
-class ViolationCount(BaseModel):
-    violation: str
-    count: int
-
-
-class InterruptionTimeSeriesPoint(BaseModel):
-    date: str
-    avg: float
-
-
-class AIQualityResponse(BaseModel):
-    protocol_compliance_rate: float
-    common_violations: list[ViolationCount]
-    avg_interruptions: float
-    interruptions_over_time: list[InterruptionTimeSeriesPoint]
-    transcription_error_rate: float
-    carrier_repeat_rate: float
-    tone_quality_distribution: dict[str, int]
 
 
 class ObjectionCount(BaseModel):

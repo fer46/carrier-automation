@@ -178,19 +178,8 @@ OBJECTIONS = [
     "Need fuel surcharge",
 ]
 
-PROTOCOL_VIOLATIONS = [
-    "Skipped FMCSA verification",
-    "Did not confirm equipment type",
-    "Missed rate confirmation",
-    "Forgot to present alternate loads",
-    "Did not verify driver availability",
-    "Skipped safety briefing",
-    "Incomplete load details shared",
-]
-
 SENTIMENTS = ["positive", "neutral", "negative"]
 ENGAGEMENT_LEVELS = ["high", "medium", "low"]
-TONE_QUALITIES = ["professional", "friendly", "neutral", "rushed"]
 
 
 def _get_miles(origin: str, destination: str) -> float:
@@ -361,17 +350,6 @@ def generate_call_record(call_index: int, base_date: datetime) -> dict:
     else:
         sentiment = random.choices(SENTIMENTS, weights=[0.15, 0.40, 0.45], k=1)[0]
 
-    # -- Performance (agent is high-quality: 91% protocol compliance) --
-    followed_protocol = random.random() < 0.91
-    violations = []
-    if not followed_protocol:
-        violations = random.sample(PROTOCOL_VIOLATIONS, random.randint(1, 2))
-
-    # -- Conversation quality (low interruptions, few errors) --
-    interruptions = random.choices([0, 1, 2, 3], weights=[0.45, 0.35, 0.15, 0.05], k=1)[0]
-    transcription_errors = random.random() < 0.05
-    carrier_had_to_repeat = random.random() < 0.08
-
     # -- Transfer to sales (consistent with funnel stage) --
     if funnel_stage == "transferred_to_sales":
         transfer_attempted = True
@@ -392,12 +370,11 @@ def generate_call_record(call_index: int, base_date: datetime) -> dict:
         ["Active", "Inactive", "Not Found"], weights=[0.93, 0.04, 0.03], k=1
     )[0]
 
-    # -- Engagement & tone (agent is professional) --
+    # -- Engagement --
     if is_accepted:
         engagement = random.choices(ENGAGEMENT_LEVELS, weights=[0.55, 0.35, 0.10], k=1)[0]
     else:
         engagement = random.choices(ENGAGEMENT_LEVELS, weights=[0.20, 0.45, 0.35], k=1)[0]
-    tone = random.choices(TONE_QUALITIES, weights=[0.45, 0.35, 0.15, 0.05], k=1)[0]
 
     record = {
         "_mock": True,
@@ -435,16 +412,6 @@ def generate_call_record(call_index: int, base_date: datetime) -> dict:
                 "carrier_expressed_interest_future": (
                     random.random() < 0.65 if is_accepted else random.random() < 0.25
                 ),
-            },
-            "performance": {
-                "agent_followed_protocol": followed_protocol,
-                "protocol_violations": violations,
-                "agent_tone_quality": tone,
-            },
-            "conversation": {
-                "ai_interruptions_count": interruptions,
-                "transcription_errors_detected": transcription_errors,
-                "carrier_had_to_repeat_info": carrier_had_to_repeat,
             },
             "operational": {
                 "transfer_to_sales_attempted": transfer_attempted,
