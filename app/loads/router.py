@@ -16,7 +16,6 @@ def _empty_to_none(v):
 
 
 NullableFloat = Annotated[Optional[float], BeforeValidator(_empty_to_none)]
-NullableStr = Annotated[Optional[str], BeforeValidator(_empty_to_none)]
 
 # All routes under /api/loads require a valid API key in the X-API-Key header.
 # The verify_api_key dependency runs before every endpoint in this router.

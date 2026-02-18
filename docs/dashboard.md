@@ -264,16 +264,6 @@ The POST `/api/analytics/calls` endpoint accepts this structure:
       "engagement_level": "high",
       "carrier_expressed_interest_future": true
     },
-    "performance": {
-      "agent_followed_protocol": true,
-      "protocol_violations": [],
-      "agent_tone_quality": "professional"
-    },
-    "conversation": {
-      "ai_interruptions_count": 1,
-      "transcription_errors_detected": false,
-      "carrier_had_to_repeat_info": false
-    },
     "operational": {
       "transfer_to_sales_attempted": false,
       "transfer_to_sales_completed": false,

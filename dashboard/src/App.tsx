@@ -3,10 +3,10 @@
  *
  * This is the single-page application entry point.  It manages:
  *
- *   1. **Global state**: date range filters, active tab, and all five analytics
- *      data slices (summary, operations, negotiations, AI quality, carriers).
+ *   1. **Global state**: date range filters, active tab, and all four analytics
+ *      data slices (summary, operations, negotiations, carriers).
  *
- *   2. **Data fetching**: on mount and every POLL_INTERVAL seconds, all five
+ *   2. **Data fetching**: on mount and every POLL_INTERVAL seconds, all four
  *      analytics endpoints are fetched in parallel via Promise.all.  Changing
  *      the date range triggers an immediate re-fetch because `fetchAll` is
  *      memoised with `dateFrom` / `dateTo` as dependencies.
@@ -14,7 +14,7 @@
  *   3. **Layout**: three visual regions stacked vertically --
  *        a) Header bar  (branding + date picker + refresh button)
  *        b) KPI hero row (7 summary cards) or an empty-state banner
- *        c) Tabbed content area (Operations | Negotiations | AI Quality | Carriers)
+ *        c) Tabbed content area (Operations | Negotiations | Carriers)
  *
  *   4. **Auto-refresh**: data is re-fetched every POLL_INTERVAL seconds.
  */

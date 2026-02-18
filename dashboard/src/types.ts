@@ -9,8 +9,7 @@
  *   1. Summary  (top-level KPI hero cards)
  *   2. Operations  (call volume, outcomes, durations, rejections)
  *   3. Negotiations  (rate progression, margins, strategy effectiveness)
- *   4. AI Quality  (protocol compliance, interruptions, tone)
- *   5. Carriers  (sentiment, engagement, objections, leaderboard)
+ *   4. Carriers  (sentiment, engagement, objections, leaderboard)
  */
 
 // ---------------------------------------------------------------------------
@@ -110,7 +109,7 @@ export interface NegotiationsData {
 }
 
 // ---------------------------------------------------------------------------
-// 5. Carriers -- /api/analytics/carriers
+// 4. Carriers -- /api/analytics/carriers
 //    Charts: sentiment area, engagement pie, objections/questions bars, leaderboard table.
 // ---------------------------------------------------------------------------
 
@@ -155,7 +154,7 @@ export interface CarriersData {
 }
 
 // ---------------------------------------------------------------------------
-// 6. Geography -- /api/analytics/geography
+// 5. Geography -- /api/analytics/geography
 //    Arc map showing requested vs booked lanes across US cities.
 // ---------------------------------------------------------------------------
 

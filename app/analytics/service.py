@@ -1,9 +1,9 @@
+import asyncio
 from datetime import UTC, datetime, time
 from typing import Optional
 
 from app.analytics.lane_parser import CITY_COORDS, parse_lane, resolve_city
 from app.analytics.models import (
-    AIQualityResponse,
     CarrierLeaderboardRow,
     CarriersResponse,
     EquipmentCount,
@@ -11,7 +11,6 @@ from app.analytics.models import (
     GeoArc,
     GeoCity,
     GeographyResponse,
-    InterruptionTimeSeriesPoint,
     LaneCount,
     MarginBucket,
     NegotiationOutcome,
@@ -22,7 +21,6 @@ from app.analytics.models import (
     StrategyRow,
     SummaryResponse,
     TimeSeriesPoint,
-    ViolationCount,
 )
 from app.database import get_database
 
@@ -290,9 +288,11 @@ async def get_operations(
         }
     )
 
-    r1 = await db.call_records.aggregate(p1).to_list(length=None)
-    r2 = await db.call_records.aggregate(p2).to_list(length=None)
-    r3 = await db.call_records.aggregate(p3).to_list(length=None)
+    r1, r2, r3 = await asyncio.gather(
+        db.call_records.aggregate(p1).to_list(length=None),
+        db.call_records.aggregate(p2).to_list(length=None),
+        db.call_records.aggregate(p3).to_list(length=None),
+    )
 
     calls_over_time = [TimeSeriesPoint(date=row["_id"], count=row["count"]) for row in r1]
     rejection_reasons = [ReasonCount(reason=row["_id"], count=row["count"]) for row in r2]
@@ -526,10 +526,12 @@ async def get_negotiations(
         }
     )
 
-    r1 = await db.call_records.aggregate(p1).to_list(length=1)
-    r2 = await db.call_records.aggregate(p2).to_list(length=None)
-    r3 = await db.call_records.aggregate(p3).to_list(length=None)
-    r4 = await db.call_records.aggregate(p4).to_list(length=None)
+    r1, r2, r3, r4 = await asyncio.gather(
+        db.call_records.aggregate(p1).to_list(length=1),
+        db.call_records.aggregate(p2).to_list(length=None),
+        db.call_records.aggregate(p3).to_list(length=None),
+        db.call_records.aggregate(p4).to_list(length=None),
+    )
 
     # Negotiation savings
     avg_savings = 0.0
@@ -574,163 +576,6 @@ async def get_negotiations(
         negotiation_outcomes=negotiation_outcomes,
         margin_distribution=margin_distribution,
         strategy_effectiveness=strategy_effectiveness,
-    )
-
-
-# ---------------------------------------------------------------------------
-# AI Quality (not yet exposed via a router endpoint)
-# ---------------------------------------------------------------------------
-
-
-async def get_ai_quality(
-    date_from: Optional[str] = None, date_to: Optional[str] = None
-) -> AIQualityResponse:
-    db = get_database()
-    date_match = _build_date_match(date_from, date_to)
-
-    # --- Pipeline 1: main stats ---
-    p1: list[dict] = []
-    if date_match:
-        p1.append({"$match": date_match})
-    p1.append(
-        {
-            "$group": {
-                "_id": None,
-                "total": {"$sum": 1},
-                "compliant": {
-                    "$sum": {
-                        "$cond": [
-                            {
-                                "$eq": [
-                                    "$transcript_extraction.performance.agent_followed_protocol",
-                                    True,
-                                ]
-                            },
-                            1,
-                            0,
-                        ]
-                    }
-                },
-                "avg_interruptions": {
-                    "$avg": "$transcript_extraction.conversation.ai_interruptions_count"
-                },
-                "transcription_errors": {
-                    "$sum": {
-                        "$cond": [
-                            {
-                                "$eq": [
-                                    "$transcript_extraction.conversation.transcription_errors_detected",
-                                    True,
-                                ]
-                            },
-                            1,
-                            0,
-                        ]
-                    }
-                },
-                "carrier_repeats": {
-                    "$sum": {
-                        "$cond": [
-                            {
-                                "$eq": [
-                                    "$transcript_extraction.conversation.carrier_had_to_repeat_info",
-                                    True,
-                                ]
-                            },
-                            1,
-                            0,
-                        ]
-                    }
-                },
-            }
-        }
-    )
-
-    # --- Pipeline 2: common violations ---
-    p2: list[dict] = []
-    if date_match:
-        p2.append({"$match": date_match})
-    p2.append({"$unwind": "$transcript_extraction.performance.protocol_violations"})
-    p2.append(
-        {
-            "$group": {
-                "_id": "$transcript_extraction.performance.protocol_violations",
-                "count": {"$sum": 1},
-            }
-        }
-    )
-    p2.append({"$sort": {"count": -1}})
-    p2.append({"$limit": 10})
-
-    # --- Pipeline 3: interruptions over time ---
-    p3: list[dict] = []
-    if date_match:
-        p3.append({"$match": date_match})
-    p3.append(
-        {
-            "$group": {
-                "_id": {
-                    "$dateToString": {
-                        "format": "%Y-%m-%d",
-                        "date": "$ingested_at",
-                    }
-                },
-                "avg": {"$avg": "$transcript_extraction.conversation.ai_interruptions_count"},
-            }
-        }
-    )
-
-    # --- Pipeline 4: tone distribution ---
-    p4: list[dict] = []
-    if date_match:
-        p4.append({"$match": date_match})
-    p4.append(
-        {
-            "$group": {
-                "_id": "$transcript_extraction.performance.agent_tone_quality",
-                "count": {"$sum": 1},
-            }
-        }
-    )
-
-    r1 = await db.call_records.aggregate(p1).to_list(length=1)
-    r2 = await db.call_records.aggregate(p2).to_list(length=None)
-    r3 = await db.call_records.aggregate(p3).to_list(length=None)
-    r4 = await db.call_records.aggregate(p4).to_list(length=None)
-
-    # Main stats
-    compliance_rate = 0.0
-    avg_interruptions = 0.0
-    transcription_error_rate = 0.0
-    carrier_repeat_rate = 0.0
-    if r1:
-        row = r1[0]
-        total = row["total"]
-        if total:
-            compliance_rate = round(row["compliant"] / total * 100, 1)
-            transcription_error_rate = round(row["transcription_errors"] / total * 100, 1)
-            carrier_repeat_rate = round(row["carrier_repeats"] / total * 100, 1)
-        avg_interruptions = round(row["avg_interruptions"] or 0.0, 1)
-
-    # Common violations
-    common_violations = [ViolationCount(violation=row["_id"], count=row["count"]) for row in r2]
-
-    # Interruptions over time
-    interruptions_over_time = [
-        InterruptionTimeSeriesPoint(date=row["_id"], avg=round(row["avg"], 1)) for row in r3
-    ]
-
-    # Tone distribution
-    tone_quality_distribution = {row["_id"]: row["count"] for row in r4 if row["_id"] is not None}
-
-    return AIQualityResponse(
-        protocol_compliance_rate=compliance_rate,
-        common_violations=common_violations,
-        avg_interruptions=avg_interruptions,
-        interruptions_over_time=interruptions_over_time,
-        transcription_error_rate=transcription_error_rate,
-        carrier_repeat_rate=carrier_repeat_rate,
-        tone_quality_distribution=tone_quality_distribution,
     )
 
 
@@ -836,11 +681,13 @@ async def get_carriers(
     p5.append({"$group": {"_id": "$load_data.equipment_type", "count": {"$sum": 1}}})
     p5.append({"$sort": {"count": -1}})
 
-    r1 = await db.call_records.aggregate(p1).to_list(length=None)
-    r2 = await db.call_records.aggregate(p2).to_list(length=None)
-    r3 = await db.call_records.aggregate(p3).to_list(length=None)
-    r4 = await db.call_records.aggregate(p4).to_list(length=None)
-    r5 = await db.call_records.aggregate(p5).to_list(length=None)
+    r1, r2, r3, r4, r5 = await asyncio.gather(
+        db.call_records.aggregate(p1).to_list(length=None),
+        db.call_records.aggregate(p2).to_list(length=None),
+        db.call_records.aggregate(p3).to_list(length=None),
+        db.call_records.aggregate(p4).to_list(length=None),
+        db.call_records.aggregate(p5).to_list(length=None),
+    )
 
     # Top objections
     top_objections = [ObjectionCount(objection=row["_id"], count=row["count"]) for row in r1]
@@ -918,8 +765,10 @@ async def get_geography(
     p2.append({"$sort": {"count": -1}})
     p2.append({"$limit": 20})
 
-    r1 = await db.call_records.aggregate(p1).to_list(length=None)
-    r2 = await db.call_records.aggregate(p2).to_list(length=None)
+    r1, r2 = await asyncio.gather(
+        db.call_records.aggregate(p1).to_list(length=None),
+        db.call_records.aggregate(p2).to_list(length=None),
+    )
 
     arcs: list[GeoArc] = []
     city_volumes: dict[str, int] = {}
