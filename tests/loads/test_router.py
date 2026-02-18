@@ -130,6 +130,106 @@ async def test_delivery_date_only_includes_same_day_loads(api_key, sample_loads)
             assert query["delivery_datetime"] == {"$lte": "2027-06-17T23:59:59"}
 
 
+async def test_search_origin_state_abbreviation_regex(api_key, sample_loads):
+    """2-letter state code should match only the state portion, not city substrings.
+
+    "CA" should generate regex ',\\s*CA$' — prevents "Chicago, IL" from matching.
+    """
+    from tests.conftest import _make_mock_db
+
+    mock_db = _make_mock_db(sample_loads, sample_loads[0])
+
+    with patch("app.loads.service.get_database", return_value=mock_db):
+        from httpx import ASGITransport, AsyncClient
+
+        from app.main import app
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            ac.headers["X-API-Key"] = api_key
+            response = await ac.get(
+                "/api/loads/search",
+                params={"validation_check": "VALID", "origin": "CA"},
+            )
+            assert response.status_code == 200
+            call_args = mock_db.loads.find.call_args
+            query = call_args[0][0]
+            assert query["origin"]["$regex"] == r",\s*CA$"
+            assert query["origin"]["$options"] == "i"
+
+
+async def test_search_destination_state_abbreviation_regex(api_key, sample_loads):
+    """State abbreviation filtering applies to destination too."""
+    from tests.conftest import _make_mock_db
+
+    mock_db = _make_mock_db(sample_loads, sample_loads[0])
+
+    with patch("app.loads.service.get_database", return_value=mock_db):
+        from httpx import ASGITransport, AsyncClient
+
+        from app.main import app
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            ac.headers["X-API-Key"] = api_key
+            response = await ac.get(
+                "/api/loads/search",
+                params={"validation_check": "VALID", "destination": "TX"},
+            )
+            assert response.status_code == 200
+            call_args = mock_db.loads.find.call_args
+            query = call_args[0][0]
+            assert query["destination"]["$regex"] == r",\s*TX$"
+
+
+async def test_search_city_name_uses_substring_regex(api_key, sample_loads):
+    """Non-abbreviation input (e.g., 'Dallas') should still use substring matching."""
+    from tests.conftest import _make_mock_db
+
+    mock_db = _make_mock_db(sample_loads, sample_loads[0])
+
+    with patch("app.loads.service.get_database", return_value=mock_db):
+        from httpx import ASGITransport, AsyncClient
+
+        from app.main import app
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            ac.headers["X-API-Key"] = api_key
+            response = await ac.get(
+                "/api/loads/search",
+                params={"validation_check": "VALID", "origin": "Dallas"},
+            )
+            assert response.status_code == 200
+            call_args = mock_db.loads.find.call_args
+            query = call_args[0][0]
+            assert query["origin"]["$regex"] == "Dallas"
+
+
+async def test_search_city_state_combo_uses_substring_regex(api_key, sample_loads):
+    """Full 'City, ST' input should use substring matching, not state-anchored."""
+    from tests.conftest import _make_mock_db
+
+    mock_db = _make_mock_db(sample_loads, sample_loads[0])
+
+    with patch("app.loads.service.get_database", return_value=mock_db):
+        from httpx import ASGITransport, AsyncClient
+
+        from app.main import app
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            ac.headers["X-API-Key"] = api_key
+            response = await ac.get(
+                "/api/loads/search",
+                params={"validation_check": "VALID", "origin": "Los Angeles, CA"},
+            )
+            assert response.status_code == 200
+            call_args = mock_db.loads.find.call_args
+            query = call_args[0][0]
+            assert query["origin"]["$regex"] == r"Los\ Angeles,\ CA"
+
+
 async def test_search_loads_requires_api_key():
     from httpx import ASGITransport, AsyncClient
 

@@ -99,24 +99,31 @@ def _score_load(
 
     # --- Origin relevance (0.0 to 0.4) ---
     if origin:
-        origin_lower = origin.lower()
+        origin_lower = origin.strip().lower()
         load_origin_lower = load.origin.lower()
-        # Extract just the city name (before the comma) for exact matching.
-        # "Dallas, TX" → "dallas"
         load_city = load_origin_lower.split(",")[0].strip()
-        if origin_lower == load_city:
-            # Exact city match: carrier said "Dallas", load is from "Dallas, TX"
+        if _is_state_abbreviation(origin):
+            # State abbreviation: extract state from "City, ST" and compare
+            parts = load_origin_lower.split(",")
+            if len(parts) >= 2 and origin_lower == parts[-1].strip():
+                score += 0.4
+        elif origin_lower == load_city:
+            # Exact city match: "Dallas" → "Dallas, TX"
             score += 0.4
         elif origin_lower in load_origin_lower:
-            # Partial match: carrier said "Dal", load is from "Dallas, TX"
+            # Partial match: "Dal" → "Dallas, TX"
             score += 0.2
 
     # --- Destination relevance (0.0 to 0.4) ---
     if destination:
-        dest_lower = destination.lower()
+        dest_lower = destination.strip().lower()
         load_dest_lower = load.destination.lower()
         load_city = load_dest_lower.split(",")[0].strip()
-        if dest_lower == load_city:
+        if _is_state_abbreviation(destination):
+            parts = load_dest_lower.split(",")
+            if len(parts) >= 2 and dest_lower == parts[-1].strip():
+                score += 0.4
+        elif dest_lower == load_city:
             score += 0.4
         elif dest_lower in load_dest_lower:
             score += 0.2
@@ -143,6 +150,27 @@ def _escape_regex(value: str) -> str:
     literal string inside MongoDB's $regex.
     """
     return re.escape(value)
+
+
+def _is_state_abbreviation(value: str) -> bool:
+    """Check if the input looks like a US state abbreviation (exactly 2 letters)."""
+    stripped = value.strip()
+    return len(stripped) == 2 and stripped.isalpha()
+
+
+def _build_location_regex(value: str) -> str:
+    """Build a MongoDB regex for origin/destination matching.
+
+    State abbreviation (2 letters like "CA") → anchored to the state portion
+    after the comma: ',\\s*CA$'. Prevents "CA" from matching "Chicago".
+
+    Everything else (city names, "City, ST" combos) → escaped substring match,
+    same as the original behavior.
+    """
+    stripped = value.strip()
+    if _is_state_abbreviation(stripped):
+        return r",\s*" + re.escape(stripped) + "$"
+    return re.escape(stripped)
 
 
 async def search_loads(
@@ -192,13 +220,14 @@ async def search_loads(
         "pickup_datetime": {"$gte": now},
     }
 
-    # --- Text filters: case-insensitive partial matching ---
-    # "$regex" does substring matching, "$options": "i" makes it case-insensitive.
-    # Example: origin="dallas" matches "Dallas, TX" in the database.
+    # --- Text filters: case-insensitive matching ---
+    # City names use substring matching ("dallas" → "Dallas, TX").
+    # 2-letter state abbreviations anchor to the state portion after the comma
+    # ("CA" → ",\s*CA$") so "CA" won't match "Chicago, IL".
     if origin:
-        query["origin"] = {"$regex": _escape_regex(origin), "$options": "i"}
+        query["origin"] = {"$regex": _build_location_regex(origin), "$options": "i"}
     if destination:
-        query["destination"] = {"$regex": _escape_regex(destination), "$options": "i"}
+        query["destination"] = {"$regex": _build_location_regex(destination), "$options": "i"}
     if equipment_type:
         query["equipment_type"] = {"$regex": _escape_regex(equipment_type), "$options": "i"}
 
