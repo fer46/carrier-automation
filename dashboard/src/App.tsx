@@ -16,8 +16,7 @@
  *        b) KPI hero row (7 summary cards) or an empty-state banner
  *        c) Tabbed content area (Operations | Negotiations | AI Quality | Carriers)
  *
- *   4. **Auto-refresh countdown**: a second timer ticks down every 1s to show
- *      the user when the next automatic data refresh will happen.
+ *   4. **Auto-refresh**: data is re-fetched every POLL_INTERVAL seconds.
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';

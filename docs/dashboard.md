@@ -70,7 +70,6 @@ Eight cards displayed in a responsive grid (2 cols mobile, 3 tablet, 4 desktop):
 | Total Calls | Count of calls in the date range | Integer |
 | Avg Call Duration | Average call length | Duration (Xm Ys) |
 | Acceptance Rate | % of calls resulting in acceptance | Percentage |
-| Booked Revenue | Sum of `final_agreed_rate` for accepted calls | Dollar |
 | Margin Earned | Sum of `(loadboard_rate - final_agreed_rate)` for accepted calls | Dollar |
 | Avg Margin % | Average margin as a percentage | Percentage |
 | Rate/Mile | Average `final_agreed_rate / miles` | Dollar |
@@ -255,7 +254,7 @@ The POST `/api/analytics/calls` endpoint accepts this structure:
       "negotiation_rounds": 2
     },
     "outcome": {
-      "call_outcome": "accepted",
+      "call_outcome": "Success",
       "rejection_reason": null,
       "funnel_stage_reached": "transferred_to_sales"
     },
@@ -327,7 +326,6 @@ Every chart gracefully handles missing data with contextual messages rather than
 | Avg Savings | `AVG(carrier_first_offer - final_agreed_rate)` | Per-deal, requires both rates non-null |
 | Avg Savings % | `AVG((carrier_first_offer - final_agreed_rate) / carrier_first_offer * 100)` | Per-deal percentage |
 | Margin % | `((loadboard_rate - final_agreed_rate) / loadboard_rate) * 100` | Per-call, then averaged |
-| Booked Revenue | `SUM(final_agreed_rate)` where outcome = accepted | Dollar total |
 | Margin Earned | `SUM(loadboard_rate - final_agreed_rate)` where accepted + both rates exist | Dollar total |
 | Rate/Mile | `AVG(final_agreed_rate / miles)` where miles > 0 | Dollar per mile |
 | Funnel Drop-off | `(1 - stage_count / first_stage_count) * 100` | Per stage |
