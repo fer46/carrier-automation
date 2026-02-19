@@ -71,7 +71,7 @@ FastAPI + MongoDB (Motor async) + Pydantic + React/TypeScript.
 - **Dynamic pricing**: `target_carrier_rate` and `cap_carrier_rate` are computed on every search/get call, never stored. Pressure = `max(urgency, rejection_pressure)`.
 - **Cross-domain query**: `loads/service.py` queries the `call_records` collection directly for rejection pressure calculation.
 - **Relevance scoring**: origin 40% + destination 40% + rate-per-mile 20%. Exact city match (state stripped) → full weight; substring → half.
-- **`_WebhookModel` base class** (analytics `models.py`): Auto-coerces `""` to `None` and wraps bare strings into `[value]` for list fields. Handles messy webhook payloads.
+- **`_WebhookModel` base class** (analytics `models.py`): Auto-coerces `""` to `None`, wraps bare strings into `[value]` for list fields, and coerces `""`/`null` to `[]` for list fields. Handles messy webhook payloads.
 - **`call_outcome` values**: `"Success"` (capital S) for accepted calls in analytics. Be aware of this exact string when writing queries or tests.
 - **Analytics funnel is cumulative**: A record at stage `transferred_to_sales` counts for all 6 earlier stages too.
 - **SPA conditional mount**: Dashboard routes only register if `dashboard/dist/` exists at startup. Running uvicorn without `npm run build` → `/dashboard` returns 404.
