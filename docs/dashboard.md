@@ -63,15 +63,16 @@ All GET endpoints accept optional `from` and `to` query parameters (ISO date str
 
 ### Hero KPI Row
 
-Eight cards displayed in a responsive grid (2 cols mobile, 3 tablet, 4 desktop):
+Eight cards displayed in a responsive grid (2 cols mobile, 4 cols tablet+):
 
 | Card | Description | Format |
 |------|-------------|--------|
 | Total Calls | Count of calls in the date range | Integer |
 | Avg Call Duration | Average call length | Duration (Xm Ys) |
 | Acceptance Rate | % of calls resulting in acceptance | Percentage |
-| Margin Earned | Sum of `(loadboard_rate - final_agreed_rate)` for accepted calls | Dollar |
-| Avg Margin % | Average margin as a percentage | Percentage |
+| Booked Revenue | Sum of `shipper_rate` for accepted calls | Dollar |
+| Gross Margin | Sum of `(shipper_rate - final_agreed_rate)` for accepted calls | Dollar |
+| Avg Margin % | Average margin as a percentage of `shipper_rate` | Percentage |
 | Rate/Mile | Average `final_agreed_rate / miles` | Dollar |
 | Unique Carriers | Count of distinct MC numbers | Integer |
 
@@ -139,7 +140,7 @@ Each slice shows a percentage label.
 
 Histogram showing how many deals fall into each margin bucket: `<0%`, `0-5%`, `5-10%`, `10-15%`, `15-20%`, `20%+`.
 
-**Margin formula:**
+**Margin formula (negotiations tab — measures negotiation savings vs. load board rate):**
 
 ```
 margin_percent = ((loadboard_rate - final_agreed_rate) / loadboard_rate) * 100
@@ -148,6 +149,8 @@ margin_percent = ((loadboard_rate - final_agreed_rate) / loadboard_rate) * 100
 - `loadboard_rate`: the broker's posted rate (what the load is worth)
 - `final_agreed_rate`: the rate the carrier accepted
 - A positive margin means the carrier accepted below the posted rate
+
+> **Note:** The hero KPI cards (Gross Margin, Avg Margin %) use a simulated `shipper_rate = loadboard_rate × 1.10` to approximate true brokerage margin. The negotiations tab margin distribution uses the raw `loadboard_rate` to measure AI negotiation performance.
 
 ---
 
@@ -315,7 +318,10 @@ Every chart gracefully handles missing data with contextual messages rather than
 | Acceptance Rate | `(accepted_calls / total_calls) * 100` | Percentage |
 | Avg Savings | `AVG(carrier_first_offer - final_agreed_rate)` | Per-deal, requires both rates non-null |
 | Avg Savings % | `AVG((carrier_first_offer - final_agreed_rate) / carrier_first_offer * 100)` | Per-deal percentage |
-| Margin % | `((loadboard_rate - final_agreed_rate) / loadboard_rate) * 100` | Per-call, then averaged |
-| Margin Earned | `SUM(loadboard_rate - final_agreed_rate)` where accepted + both rates exist | Dollar total |
+| Shipper Rate | `loadboard_rate * 1.10` | Simulated; computed on the fly, never stored |
+| Booked Revenue | `SUM(shipper_rate)` where accepted + shipper_rate exists | Dollar total |
+| Avg Margin % | `((shipper_rate - final_agreed_rate) / shipper_rate) * 100` | Hero KPI; per-call, then averaged |
+| Gross Margin | `SUM(shipper_rate - final_agreed_rate)` where accepted + both rates exist | Dollar total |
+| Negotiation Margin % | `((loadboard_rate - final_agreed_rate) / loadboard_rate) * 100` | Negotiations tab margin distribution |
 | Rate/Mile | `AVG(final_agreed_rate / miles)` where miles > 0 | Dollar per mile |
 | Funnel Drop-off | `(1 - stage_count / first_stage_count) * 100` | Per stage |

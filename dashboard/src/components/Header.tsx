@@ -23,7 +23,7 @@ const RANGES: { value: TimeRange; label: string }[] = [
 
 export default function Header({ activeRange, onRangeChange, onRefresh }: HeaderProps) {
   return (
-    <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+    <header className="sticky top-0 z-50 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
       {/* Left side: app branding */}
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 bg-black flex items-center justify-center">

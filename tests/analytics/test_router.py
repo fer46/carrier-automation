@@ -172,6 +172,7 @@ async def summary_client():
                 "avg_rounds": 2.1,
                 "avg_margin": 8.4,
                 "total_margin_earned": 1400.0,
+                "booked_revenue": 16940.0,
                 "avg_rate_per_mile": 2.17,
                 "unique_carriers": [1234, 5678, 9012, 3456, 7890],
             }
@@ -192,6 +193,7 @@ async def test_summary_returns_200(summary_client):
     assert data["acceptance_rate"] == 70.0
     assert data["avg_call_duration"] == 245.5
     assert data["total_margin_earned"] == 1400.0
+    assert data["booked_revenue"] == 16940.0
     assert data["avg_rate_per_mile"] == 2.17
     assert data["total_carriers"] == 5
 
@@ -207,6 +209,7 @@ async def test_summary_empty_db():
             data = response.json()
             assert data["total_calls"] == 0
             assert data["acceptance_rate"] == 0.0
+            assert data["booked_revenue"] == 0.0
 
 
 # --- Operations Tests ---

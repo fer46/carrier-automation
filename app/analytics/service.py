@@ -24,6 +24,10 @@ from app.analytics.models import (
 )
 from app.database import get_database
 
+# Simulated shipper rate markup (industry-standard 10% above loadboard rate).
+# Applied on the fly in aggregation pipelines — not stored in documents.
+SHIPPER_RATE_MARKUP = 1.10
+
 
 def _build_date_match(date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
     match: dict = {}
@@ -73,6 +77,21 @@ async def get_summary(
     if date_match:
         pipeline.append({"$match": date_match})
 
+    # Compute simulated shipper rate on the fly (loadboard_rate * 1.10).
+    pipeline.append(
+        {
+            "$addFields": {
+                "shipper_rate": {
+                    "$cond": [
+                        {"$ne": ["$load_data.loadboard_rate", None]},
+                        {"$multiply": ["$load_data.loadboard_rate", SHIPPER_RATE_MARKUP]},
+                        None,
+                    ]
+                }
+            }
+        }
+    )
+
     pipeline.append(
         {
             "$group": {
@@ -99,12 +118,7 @@ async def get_summary(
                         "$cond": [
                             {
                                 "$and": [
-                                    {
-                                        "$ne": [
-                                            "$load_data.loadboard_rate",
-                                            None,
-                                        ]
-                                    },
+                                    {"$ne": ["$shipper_rate", None]},
                                     {
                                         "$ne": [
                                             "$transcript_extraction.negotiation.final_agreed_rate",
@@ -119,11 +133,11 @@ async def get_summary(
                                         "$divide": [
                                             {
                                                 "$subtract": [
-                                                    "$load_data.loadboard_rate",
+                                                    "$shipper_rate",
                                                     "$transcript_extraction.negotiation.final_agreed_rate",
                                                 ]
                                             },
-                                            "$load_data.loadboard_rate",
+                                            "$shipper_rate",
                                         ]
                                     },
                                     100,
@@ -144,12 +158,7 @@ async def get_summary(
                                             "Success",
                                         ]
                                     },
-                                    {
-                                        "$ne": [
-                                            "$load_data.loadboard_rate",
-                                            None,
-                                        ]
-                                    },
+                                    {"$ne": ["$shipper_rate", None]},
                                     {
                                         "$ne": [
                                             "$transcript_extraction.negotiation.final_agreed_rate",
@@ -160,10 +169,29 @@ async def get_summary(
                             },
                             {
                                 "$subtract": [
-                                    "$load_data.loadboard_rate",
+                                    "$shipper_rate",
                                     "$transcript_extraction.negotiation.final_agreed_rate",
                                 ]
                             },
+                            0,
+                        ]
+                    }
+                },
+                "booked_revenue": {
+                    "$sum": {
+                        "$cond": [
+                            {
+                                "$and": [
+                                    {
+                                        "$eq": [
+                                            "$transcript_extraction.outcome.call_outcome",
+                                            "Success",
+                                        ]
+                                    },
+                                    {"$ne": ["$shipper_rate", None]},
+                                ]
+                            },
+                            "$shipper_rate",
                             0,
                         ]
                     }
@@ -209,6 +237,7 @@ async def get_summary(
             avg_negotiation_rounds=0.0,
             avg_margin_percent=0.0,
             total_margin_earned=0.0,
+            booked_revenue=0.0,
             avg_rate_per_mile=0.0,
             total_carriers=0,
         )
@@ -222,6 +251,7 @@ async def get_summary(
         avg_negotiation_rounds=round(row["avg_rounds"] or 0.0, 1),
         avg_margin_percent=round(row["avg_margin"] or 0.0, 1),
         total_margin_earned=round(row["total_margin_earned"] or 0.0, 2),
+        booked_revenue=round(row["booked_revenue"] or 0.0, 2),
         avg_rate_per_mile=round(row["avg_rate_per_mile"] or 0.0, 2),
         total_carriers=len(row["unique_carriers"]),
     )
