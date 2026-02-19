@@ -23,9 +23,12 @@ class _WebhookModel(BaseModel):
             }
             return {
                 k: (
-                    [] if (v == "" or v is None) and k in list_fields
-                    else None if v == ""
-                    else [v] if isinstance(v, str) and k in list_fields
+                    []
+                    if (v == "" or v is None) and k in list_fields
+                    else None
+                    if v == ""
+                    else [v]
+                    if isinstance(v, str) and k in list_fields
                     else v
                 )
                 for k, v in data.items()
