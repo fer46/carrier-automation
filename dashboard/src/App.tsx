@@ -117,7 +117,7 @@ export default function App() {
             <KPICard label="Total Calls" value={summary.total_calls} />
             <KPICard label="Avg Call Duration" value={summary.avg_call_duration} format="duration" />
             <KPICard label="Acceptance Rate" value={summary.acceptance_rate} format="percent" color="green" />
-            <KPICard label="Booked Revenue" value={summary.booked_revenue} format="dollar" color="green" tooltip="Total simulated shipper revenue for accepted loads (loadboard rate × 1.10)." />
+            <KPICard label="Booked Revenue" value={summary.booked_revenue} format="dollar" color="green" tooltip="Total simulated shipper revenue for accepted loads (load board rate × 1.10)." />
             <KPICard label="Gross Margin" value={summary.total_margin_earned} format="dollar" color="green" tooltip="Total gross margin across all accepted deals (shipper rate − carrier rate)." />
             <KPICard label="Avg Margin %" value={summary.avg_margin_percent} format="percent" color="green" tooltip="Average gross margin percentage per deal (shipper rate − carrier rate) / shipper rate." />
             <KPICard label="Rate/Mile" value={summary.avg_rate_per_mile} format="dollar" />
