@@ -140,7 +140,7 @@ Each slice shows a percentage label.
 
 Histogram showing how many deals fall into each margin bucket: `<0%`, `0-5%`, `5-10%`, `10-15%`, `15-20%`, `20%+`.
 
-**Margin formula (negotiations tab — measures negotiation savings vs. load board rate):**
+**Margin formula (negotiations tab —> measures negotiation savings vs. load board rate):**
 
 ```
 margin_percent = ((loadboard_rate - final_agreed_rate) / loadboard_rate) * 100
