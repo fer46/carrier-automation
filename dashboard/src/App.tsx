@@ -111,14 +111,15 @@ export default function App() {
             <p className="text-gray-400 text-lg mb-2">No call data yet</p>
           </div>
         ) : summary ? (
-          // KPI hero cards: 6 key metrics displayed in a responsive grid.
-          // Responsive breakpoints: 2 cols (mobile) -> 3 cols (tablet) -> 4 cols (desktop).
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+          // KPI hero cards: 8 key metrics displayed in a responsive grid (2 rows of 4).
+          // Responsive breakpoints: 2 cols (mobile) -> 4 cols (tablet+).
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             <KPICard label="Total Calls" value={summary.total_calls} />
             <KPICard label="Avg Call Duration" value={summary.avg_call_duration} format="duration" />
             <KPICard label="Acceptance Rate" value={summary.acceptance_rate} format="percent" color="green" />
-            <KPICard label="Margin Earned" value={summary.total_margin_earned} format="dollar" color="green" tooltip="Total savings across all accepted deals compared to the posted load board rate." />
-            <KPICard label="Avg Margin %" value={summary.avg_margin_percent} format="percent" color="green" tooltip="Average percentage saved per deal relative to the posted load board rate." />
+            <KPICard label="Booked Revenue" value={summary.booked_revenue} format="dollar" color="green" tooltip="Total simulated shipper revenue for accepted loads (loadboard rate × 1.10)." />
+            <KPICard label="Gross Margin" value={summary.total_margin_earned} format="dollar" color="green" tooltip="Total gross margin across all accepted deals (shipper rate − carrier rate)." />
+            <KPICard label="Avg Margin %" value={summary.avg_margin_percent} format="percent" color="green" tooltip="Average gross margin percentage per deal (shipper rate − carrier rate) / shipper rate." />
             <KPICard label="Rate/Mile" value={summary.avg_rate_per_mile} format="dollar" />
             <KPICard label="Unique Carriers" value={summary.total_carriers} />
           </div>

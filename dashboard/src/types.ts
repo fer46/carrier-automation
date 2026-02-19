@@ -26,10 +26,12 @@ export interface SummaryData {
   avg_call_duration: number;
   /** Average number of back-and-forth negotiation rounds per call. */
   avg_negotiation_rounds: number;
-  /** Average profit margin as a percentage (0-100). */
+  /** Average gross margin as a percentage (0-100), computed against simulated shipper_rate. */
   avg_margin_percent: number;
-  /** Total margin earned across all accepted loads (loadboard_rate - final_agreed_rate). */
+  /** Total gross margin across all accepted loads (shipper_rate - final_agreed_rate). */
   total_margin_earned: number;
+  /** Total booked revenue: sum of shipper_rate for accepted loads. */
+  booked_revenue: number;
   /** Average rate per mile across accepted loads with mileage data. */
   avg_rate_per_mile: number;
   /** Count of distinct carriers contacted. */

@@ -123,6 +123,7 @@ class SummaryResponse(BaseModel):
     avg_negotiation_rounds: float
     avg_margin_percent: float
     total_margin_earned: float
+    booked_revenue: float
     avg_rate_per_mile: float
     total_carriers: int
 

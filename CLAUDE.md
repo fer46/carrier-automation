@@ -76,6 +76,7 @@ FastAPI + MongoDB (Motor async) + Pydantic + React/TypeScript.
 - **Analytics funnel is cumulative**: A record at stage `transferred_to_sales` counts for all 6 earlier stages too.
 - **SPA conditional mount**: Dashboard routes only register if `dashboard/dist/` exists at startup. Running uvicorn without `npm run build` → `/dashboard` returns 404.
 - **`VITE_API_KEY` env var**: Must be set in `dashboard/.env` for the dev server to authenticate API calls.
+- **Simulated shipper rate**: `shipper_rate = loadboard_rate * 1.10` is computed on the fly in the summary aggregation pipeline (`SHIPPER_RATE_MARKUP` constant in `analytics/service.py`). Used for hero KPI margin calculations (Gross Margin, Avg Margin %, Booked Revenue). The negotiations tab margin distribution uses the raw `loadboard_rate` instead — different purpose (AI negotiation performance vs. brokerage margin).
 - **Numeric params as strings**: Load search params (`min_rate`, `max_rate`, `max_weight`) arrive as `Optional[str]` because the voice AI sends `""` for empty values, parsed to float in the router.
 
 ---
