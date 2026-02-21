@@ -108,7 +108,7 @@ FastAPI + MongoDB (Motor async) + Pydantic + React/TypeScript.
 - Skip this for simple, obvious fixes - don't over-engineer
 - Challenge your own work before presenting it
 ### 6. Autonomous Bug Fixing
-- When given a bug report: just fix it. Don't ask for hand-holding
+- When given a bug report: verify with the developer before modifying the logic
 - Point at logs, errors, failing tests then resolve them
 - Zero context switching required from the user
 - Go fix failing CI tests without being told how
@@ -123,3 +123,4 @@ FastAPI + MongoDB (Motor async) + Pydantic + React/TypeScript.
 - **Simplicity First**: Make every change as simple as possible. Impact minimal code.
 - **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
 - **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
+
